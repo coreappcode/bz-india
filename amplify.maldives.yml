@@ -1,7 +1,7 @@
 version: 1
 env:
   variables:
-    VITE_PUBLIC_APP_URL: 'https://www.bzead.in'
+    VITE_PUBLIC_APP_URL: 'https://main.dodpm249jwwgd.amplifyapp.com'
 frontend:
   phases:
     preBuild:
@@ -9,9 +9,9 @@ frontend:
         - npm ci
     build:
       commands:
-        - npm run build:buyer:india
+        - npm run build:buyer:maldives
   artifacts:
-    baseDirectory: dist-buyer-in
+    baseDirectory: dist-buyer
     files:
       - '**/*'
   cache:

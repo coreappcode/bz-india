@@ -318,17 +318,18 @@ using a local ignored `.env` file:
 ```bash
 npm ci
 npm run dev
-# or, for the India storefront:
-npm run dev:india
+# `npm run dev` starts the India storefront; use `npm run dev:maldives` for MV.
 ```
 
 Useful project commands:
 
 ```bash
-npm run build              # buyer production build
-npm run build:buyer        # type-check, MV Vite build, and buyer share pages
+npm run build              # India production build
+npm run build:buyer        # India buyer build alias
 npm run build:buyer:india   # type-check, IN Vite build, and India share pages
+npm run build:buyer:maldives # type-check, MV Vite build, and Maldives share pages
 npm run build:india         # alias for build:buyer:india
+npm run build:maldives      # alias for build:buyer:maldives
 npm run build:share-pages  # share page generator
 npm run lint               # ESLint
 npm test                   # Vitest suite
@@ -336,27 +337,27 @@ npm run test:watch         # Vitest watch mode
 npm run test:coverage      # Vitest with coverage
 ```
 
-The standard buyer build remains `VITE_MARKET=MV` and writes to `dist-buyer`.
-The India build writes to `dist-buyer-in`; generated output is ignored by Git.
+The default buyer build uses `VITE_MARKET=IN` and writes to `dist-buyer-in`.
+The Maldives build uses `VITE_MARKET=MV` and writes to `dist-buyer`; generated
+output is ignored by Git.
 Local production builds need the same required public configuration as the
 deployed build. AWS Amplify variables are available to Amplify builds but are
 not automatically present in a developer's local shell.
 
 ## 11. AWS Amplify deployment
 
-`amplify.yml` builds the MV storefront. `amplify.india.yml` builds the IN
-storefront:
+`amplify.yml` builds the IN storefront. `amplify.maldives.yml` builds the MV
+storefront. Each build spec:
 
 1. Runs `npm ci`.
-2. Runs `npm run build:buyer`.
-3. Publishes `dist-buyer`.
+2. Runs its market-specific buyer build command.
+3. Publishes its market-specific output directory.
 4. Configures security headers and long-lived caching for versioned assets.
 
-Configure the India Amplify app/branch to use `amplify.india.yml` (or copy that
-build spec into the app's configured build-spec path). Set its public origin
-to `https://www.bzead.in`, plus the same Supabase URL/public key and any
-intentionally enabled provider keys. Configure the MV app separately with
-`amplify.yml` and its MV origin.
+Configure the India Amplify app/branch to use `amplify.yml` and set its public
+origin to `https://www.bzead.in`, plus the shared Supabase URL/public key and
+any intentionally enabled provider keys. Configure the Maldives app to use
+`amplify.maldives.yml` and its MV origin.
 Amplify's SPA rewrite must send application routes to `index.html`, while
 allowing generated `/share/*` HTML to be served directly. Confirm this rewrite
 in the Amplify console for the deployed app.
