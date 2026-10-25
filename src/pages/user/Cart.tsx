@@ -35,6 +35,8 @@ export const CartPage: React.FC = () => {
   const [publicPriceMap, setPublicPriceMap] = useState<Record<string, number>>({});
   const [variantPriceMap, setVariantPriceMap] = useState<Record<string, number>>({});
   const [variantPriceError, setVariantPriceError] = useState<string | null>(null);
+  // Items whose saved variant no longer matches the catalogue; they are excluded from checkout.
+  const [unavailableItems, setUnavailableItems] = useState<Record<string, string>>({});
   const [, setPublicPriceLoading] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
@@ -105,6 +107,7 @@ export const CartPage: React.FC = () => {
       if (!selectedCountry) {
         setPublicPriceMap({});
         setVariantPriceMap({});
+        setUnavailableItems({});
         setPublicPriceLoading(true);
         return;
       }
@@ -112,6 +115,7 @@ export const CartPage: React.FC = () => {
       if (cartItems.length === 0) {
         setPublicPriceMap({});
         setVariantPriceMap({});
+        setUnavailableItems({});
         setVariantPriceError(null);
         setPublicPriceLoading(false);
         return;
@@ -129,9 +133,11 @@ export const CartPage: React.FC = () => {
             selectedColor: item.selectedColor,
           })),
           selectedCountry,
+          { perItem: true },
         );
         if (cancelled) return;
         setVariantPriceError(variantResult.error);
+        setUnavailableItems(variantResult.error ? {} : variantResult.errorsByKey ?? {});
         if (variantResult.error) {
           console.error('[Cart] Unable to verify selected variant pricing:', variantResult.error);
           setVariantPriceMap({});
@@ -226,11 +232,13 @@ export const CartPage: React.FC = () => {
     void loadPricing();
   }, [selectedCartItems, selectedCountry, publicPriceMap]);
 
+  const payableSelectedItems = selectedCartItems.filter((item) => !unavailableItems[item.cartItemId]);
+  const unavailableCount = Object.keys(unavailableItems).length;
   const pricingByProductId = new Map((pricing?.items || []).map((item) => [item.productId, item]));
   const hasVariantSelection = (item: (typeof cartItems)[number]) => Boolean(
     item.selectedVariantId || item.selectedVariantSku || item.selectedSize || item.selectedColor,
   );
-  const hasResolvedSelectedPrices = selectedCartItems.every((item) => {
+  const hasResolvedSelectedPrices = payableSelectedItems.every((item) => {
     if (hasVariantSelection(item)) {
       return typeof variantPriceMap[item.cartItemId] === 'number';
     }
@@ -243,18 +251,23 @@ export const CartPage: React.FC = () => {
       alert('PLEASE SELECT ANY ITEM TO PROCEED');
       return;
     }
+    if (payableSelectedItems.length === 0) {
+      alert('The selected items are no longer available. Please remove them or select an available variant.');
+      return;
+    }
     if (!hasResolvedSelectedPrices) {
       alert('Please wait for final prices to load.');
       return;
     }
     // M1: Block checkout if any selected item is out of stock
-    const outOfStock = selectedCartItems.filter((item) => item.product.stock <= 0);
+    const outOfStock = payableSelectedItems.filter((item) => item.product.stock <= 0);
     if (outOfStock.length > 0) {
       alert(`These items are out of stock: ${outOfStock.map((i) => i.product.name).join(', ')}. Please remove them to continue.`);
       return;
     }
-    localStorage.setItem('beauzead_checkout_selected_cart_ids', JSON.stringify(selectedItemIds));
-    navigate('/checkout/shipping', { state: { selectedCartItemIds: selectedItemIds } });
+    const payableIds = payableSelectedItems.map((item) => item.cartItemId);
+    localStorage.setItem('beauzead_checkout_selected_cart_ids', JSON.stringify(payableIds));
+    navigate('/checkout/shipping', { state: { selectedCartItemIds: payableIds } });
   };
 
   const isAllSelected = cartItems.length > 0 && selectedItemIds.length === cartItems.length;
@@ -279,7 +292,7 @@ export const CartPage: React.FC = () => {
   };
 
   /* ─── Compute display subtotal from selected items (L1: convert each to user currency) ─── */
-  const displaySubtotal = selectedCartItems.reduce((sum, item) => {
+  const displaySubtotal = payableSelectedItems.reduce((sum, item) => {
     const unit = hasVariantSelection(item)
       ? variantPriceMap[item.cartItemId]
       : publicPriceMap[item.product.id]
@@ -366,6 +379,7 @@ export const CartPage: React.FC = () => {
                     ?? pricingByProductId.get(cartItem.product.id)?.publicUnitPrice
                     ?? cartItem.product.price;
                 const isUpdating = updatingId === cartItem.cartItemId;
+                const unavailableReason = unavailableItems[cartItem.cartItemId];
 
                 return (
                   <div
@@ -409,6 +423,11 @@ export const CartPage: React.FC = () => {
                           {cartItem.selectedSize && `Size: ${cartItem.selectedSize}`}
                           {cartItem.selectedSize && cartItem.selectedColor && ' · '}
                           {cartItem.selectedColor && `Color: ${cartItem.selectedColor}`}
+                        </p>
+                      )}
+                      {unavailableReason && (
+                        <p className="mb-1 text-[12px] font-semibold text-red-700">
+                          This option is no longer available. Delete it, or open the product and add it again.
                         </p>
                       )}
                       <div className="flex flex-wrap gap-1.5 mb-2">
@@ -468,9 +487,11 @@ export const CartPage: React.FC = () => {
                     {/* Price Column */}
                     <div className="text-right shrink-0 min-w-[60px] sm:min-w-[90px]">
                       <div className="text-[16px] sm:text-[18px] font-bold text-[#b12704]">
-                        {typeof itemPrice === 'number'
-                          ? formatPrice(itemPrice, resolvePublicPriceSourceCurrency(cartItem))
-                          : 'Loading…'}
+                        {unavailableReason
+                          ? 'Unavailable'
+                          : typeof itemPrice === 'number'
+                            ? formatPrice(itemPrice, resolvePublicPriceSourceCurrency(cartItem))
+                            : 'Loading…'}
                       </div>
                     </div>
                   </div>
@@ -506,6 +527,12 @@ export const CartPage: React.FC = () => {
                 <div className="bg-white border border-[#ddd] rounded-[10px] p-4 sm:p-5">
                 <h2 className="hidden text-[18px] font-bold text-[#0f1111] mb-4 md:block">Cart Summary</h2>
 
+                {!variantPriceError && unavailableCount > 0 && (
+                  <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 font-semibold">
+                    {unavailableCount} item{unavailableCount !== 1 ? 's are' : ' is'} no longer available and will not be included in checkout.
+                  </div>
+                )}
+
                 {variantPriceError && (
                   <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 font-semibold">
                     {variantPriceError}
@@ -513,21 +540,21 @@ export const CartPage: React.FC = () => {
                 )}
 
                 <div className="flex justify-between text-[14px] mb-2">
-                  <span className="text-[#555]">Subtotal ({selectedCartItems.length} item{selectedCartItems.length !== 1 ? 's' : ''})</span>
+                  <span className="text-[#555]">Subtotal ({payableSelectedItems.length} item{payableSelectedItems.length !== 1 ? 's' : ''})</span>
                   <span className="font-semibold text-[#0f1111]">
-                    {selectedCartItems.length > 0 ? formatPrice(displaySubtotal, currency) : '—'}
+                    {payableSelectedItems.length > 0 ? formatPrice(displaySubtotal, currency) : '—'}
                   </span>
                 </div>
                 <hr className="border-t-2 border-[#ddd] my-3.5" />
 
                 <div className="flex justify-between text-[18px] font-bold text-[#b12704]">
                   <span>Estimated Total</span>
-                  <span>{selectedCartItems.length > 0 ? formatPrice(displaySubtotal, currency) : '—'}</span>
+                  <span>{payableSelectedItems.length > 0 ? formatPrice(displaySubtotal, currency) : '—'}</span>
                 </div>
 
                 <button
                   onClick={handleCheckout}
-                  disabled={!hasResolvedSelectedPrices}
+                  disabled={!hasResolvedSelectedPrices || payableSelectedItems.length === 0}
                   className="w-full mt-4 py-3.5 bg-[#ffd814] border border-[#fcd200] rounded-[10px] text-[15px] font-bold text-[#0f1111] cursor-pointer hover:bg-[#f7ca00] active:bg-[#e8b800] transition-colors"
                 >
                   Proceed to Checkout →

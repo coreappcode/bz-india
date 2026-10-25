@@ -54,13 +54,25 @@ const toNumber = (value: unknown): number => {
 
 const normalizeVariantValue = (value?: string | null) => String(value || '').trim().toLowerCase();
 
+export interface VerifyVariantPricesOptions {
+  // When true, an unverifiable item is reported in `errorsByKey` instead of failing the whole batch.
+  // Only for display (cart); checkout must keep the strict default.
+  perItem?: boolean;
+}
+
 export async function fetchVerifiedVariantPrices(
   requests: VariantPriceRequest[],
   country?: string | null,
-): Promise<{ data: Record<string, VerifiedVariantPrice>; error: string | null }> {
+  options: VerifyVariantPricesOptions = {},
+): Promise<{ data: Record<string, VerifiedVariantPrice>; error: string | null; errorsByKey?: Record<string, string> }> {
+  const perItem = Boolean(options.perItem);
+  const errorsByKey: Record<string, string> = {};
+  // errorsByKey is only exposed in perItem mode so the strict result shape is unchanged.
+  const result = (data: Record<string, VerifiedVariantPrice>, error: string | null) =>
+    (perItem ? { data, error, errorsByKey } : { data, error });
   const validRequests = requests.filter((request) => request.key && request.productId);
   if (validRequests.length === 0) {
-    return { data: {}, error: null };
+    return result({}, null);
   }
 
   const productIds = Array.from(new Set(validRequests.map((request) => request.productId)));
@@ -70,7 +82,7 @@ export async function fetchVerifiedVariantPrices(
     .in('product_id', productIds);
 
   if (variantQueryError) {
-    return { data: {}, error: `Unable to verify selected product variants: ${variantQueryError.message}` };
+    return { data: {}, error: `Unable to verify selected product variants: ${variantQueryError.message}`, errorsByKey };
   }
 
   const variantsByProduct = new Map<string, Array<Record<string, unknown>>>();
@@ -82,8 +94,8 @@ export async function fetchVerifiedVariantPrices(
     variantsByProduct.set(productId, rows);
   });
 
-  const selectedVariants: Array<{ key: string; productId: string; row: Record<string, unknown> }> = [];
-  for (const request of validRequests) {
+  // Returns an error message, null when the item has no variants to verify, or the matched variant row.
+  const matchVariant = (request: VariantPriceRequest): { error: string } | { row: Record<string, unknown> | null } => {
     const variants = variantsByProduct.get(request.productId) || [];
     const variantId = String(request.variantId || '').trim();
     const variantSku = String(request.variantSku || '').trim();
@@ -93,13 +105,13 @@ export async function fetchVerifiedVariantPrices(
 
     if (variants.length === 0) {
       if (hasSelection) {
-        return { data: {}, error: 'A selected product variant is no longer available. Return to your cart and select it again.' };
+        return { error: 'A selected product variant is no longer available. Return to your cart and select it again.' };
       }
-      continue;
+      return { row: null };
     }
 
     if (!hasSelection) {
-      return { data: {}, error: 'A product variant must be selected before checkout. Return to your cart and select an available variant.' };
+      return { error: 'A product variant must be selected before checkout. Return to your cart and select an available variant.' };
     }
 
     const matches = variants.filter((row) => {
@@ -116,7 +128,6 @@ export async function fetchVerifiedVariantPrices(
 
     if (matches.length !== 1) {
       return {
-        data: {},
         error: matches.length === 0
           ? 'The selected product variant is unavailable or has changed. Return to your cart and select it again.'
           : 'The selected product variant cannot be uniquely verified. Return to your cart and select it again.',
@@ -128,9 +139,22 @@ export async function fetchVerifiedVariantPrices(
     const sku = String(row.sku || '').trim();
     const basePrice = Number(row.price);
     if (!id || !sku || !Number.isFinite(basePrice) || basePrice <= 0) {
-      return { data: {}, error: 'The selected product variant has incomplete pricing information. Please contact support.' };
+      return { error: 'The selected product variant has incomplete pricing information. Please contact support.' };
     }
-    selectedVariants.push({ key: request.key, productId: request.productId, row });
+    return { row };
+  };
+
+  const selectedVariants: Array<{ key: string; productId: string; row: Record<string, unknown> }> = [];
+  for (const request of validRequests) {
+    const match = matchVariant(request);
+    if ('error' in match) {
+      if (!perItem) return result({}, match.error);
+      errorsByKey[request.key] = match.error;
+      continue;
+    }
+    if (match.row) {
+      selectedVariants.push({ key: request.key, productId: request.productId, row: match.row });
+    }
   }
 
   const pricesByKey: Record<string, VerifiedVariantPrice> = {};
@@ -142,11 +166,14 @@ export async function fetchVerifiedVariantPrices(
       { [variant.productId]: basePrice },
     );
     if (error) {
-      return { data: {}, error: `Unable to verify the selected variant price: ${error}` };
+      return { data: {}, error: `Unable to verify the selected variant price: ${error}`, errorsByKey };
     }
     const priceRow = data.find((row) => row.productId === variant.productId);
     if (!priceRow || !Number.isFinite(priceRow.publicUnitPrice) || priceRow.publicUnitPrice <= 0) {
-      return { data: {}, error: 'The selected product variant could not be priced. Return to your cart and try again.' };
+      const message = 'The selected product variant could not be priced. Return to your cart and try again.';
+      if (!perItem) return result({}, message);
+      errorsByKey[variant.key] = message;
+      continue;
     }
 
     pricesByKey[variant.key] = {
@@ -158,7 +185,7 @@ export async function fetchVerifiedVariantPrices(
     };
   }
 
-  return { data: pricesByKey, error: null };
+  return result(pricesByKey, null);
 }
 
 export async function fetchPublicProductPrices(

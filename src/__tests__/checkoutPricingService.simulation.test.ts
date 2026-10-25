@@ -316,6 +316,27 @@ describe('checkout pricing simulation: legacy + shiprocket', () => {
     expect(ambiguous.error).toMatch(/cannot be uniquely verified/i);
   });
 
+  it('perItem mode flags only the stale item and still prices the valid ones; strict mode still fails the batch', async () => {
+    setTable('product_variants', [
+      { id: 'variant-one', product_id: 'modern-p2', sku: 'SKU-ONE', size: 'One', color: 'Silver', price: 499 },
+    ]);
+    const requests = [
+      { key: 'good', productId: 'modern-p2', variantSku: 'SKU-ONE' },
+      { key: 'stale', productId: 'modern-p2', variantSku: 'SKU-DELETED' },
+    ];
+
+    const partial = await fetchVerifiedVariantPrices(requests, 'India', { perItem: true });
+    expect(partial.error).toBeNull();
+    expect(Object.keys(partial.errorsByKey || {})).toEqual(['stale']);
+    expect(partial.errorsByKey?.stale).toMatch(/unavailable or has changed/i);
+    expect(partial.data.good?.variantSku).toBe('SKU-ONE');
+    expect(partial.data.stale).toBeUndefined();
+
+    const strict = await fetchVerifiedVariantPrices(requests, 'India');
+    expect(strict.error).toMatch(/unavailable or has changed/i);
+    expect(strict.data).toEqual({});
+  });
+
   it('keeps non-variant products on the existing product-price path', async () => {
     const result = await fetchVerifiedVariantPrices([
       { key: 'cart-1', productId: 'modern-p2' },
