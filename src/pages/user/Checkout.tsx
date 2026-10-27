@@ -1841,7 +1841,7 @@ const CheckoutForm: React.FC<
         </button>
         <div className="flex items-center gap-1.5">
           <ShieldCheck size={14} className="text-[#555]" />
-          <span className="text-[11px] text-[#555] font-medium">256-bit SSL · Powered by Stripe</span>
+          <span className="text-[11px] text-[#555] font-medium">256-bit SSL · Powered by {paymentProvider === 'razorpay' ? 'Razorpay' : 'Stripe'}</span>
         </div>
       </div>
 
