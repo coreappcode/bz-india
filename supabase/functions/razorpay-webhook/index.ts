@@ -116,9 +116,9 @@ async function isEventProcessed(eventId: string): Promise<boolean> {
   return !!row;
 }
 
-type OrderRow = { id: string; payment_status: string | null; status: string | null; total_amount: number; currency: string | null; user_id: string };
+type OrderRow = { id: string; payment_status: string | null; status: string | null; total_amount: number; product_subtotal: number | null; shipping_charge: number | null; currency: string | null; user_id: string };
 
-const ORDER_SELECT = 'id,payment_status,status,total_amount,currency,user_id';
+const ORDER_SELECT = 'id,payment_status,status,total_amount,product_subtotal,shipping_charge,currency,user_id';
 
 async function findOrderByRazorpayOrder(razorpayOrderId: string): Promise<OrderRow | null> {
   return fetchOne<OrderRow>(
@@ -255,13 +255,21 @@ async function settlePayment(
     return { ok: true, orderId: order.id, alreadyConfirmed: true };
   }
 
-  // Tolerate up to Rs 1 of rounding drift between the checkout quote and the server-priced order.
-  const expectedPaise = Math.round(Number(order.total_amount) * 100);
-  if (String(order.currency || 'INR').toUpperCase() !== 'INR' || Math.abs(expectedPaise - payment.amount) > 100) {
+  // The buyer is quoted items + shipping; create_order_secure adds a platform handling charge on top
+  // in orders.total_amount, so total_amount is NOT what the buyer pays. Require the payment to cover
+  // the server-priced items + shipping (Rs 1 rounding tolerance) and not exceed the recorded total.
+  const goodsPaise = Math.round((Number(order.product_subtotal ?? 0) + Number(order.shipping_charge ?? 0)) * 100);
+  const maxPaise = Math.round(Number(order.total_amount) * 100);
+  if (
+    String(order.currency || 'INR').toUpperCase() !== 'INR'
+    || goodsPaise <= 0
+    || payment.amount < goodsPaise - 100
+    || payment.amount > maxPaise + 100
+  ) {
     return {
       ok: false,
       code: 'amount_mismatch',
-      message: `Paid ${payment.amount} paise but order total is ${expectedPaise} paise (order ${order.id})`,
+      message: `Paid ${payment.amount} paise; server-priced items+shipping ${goodsPaise}, order total ${maxPaise} (order ${order.id})`,
     };
   }
 
