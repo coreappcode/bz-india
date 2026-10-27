@@ -15,7 +15,7 @@ import {
   type DestinationCheckoutPricing,
 } from '../../lib/checkoutPricingService';
 import { fetchPublicProductPrices } from '../../lib/pricingService';
-import { formatCurrency, hasCurrencyRate, isExchangeRateUnavailable } from '../../utils/currency';
+import { hasCurrencyRate, isExchangeRateUnavailable } from '../../utils/currency';
 import { detectLocationWithCaching } from '../../lib/locationService';
 import { fetchCountries, type Country } from '../../lib/shippingDataService';
 import {
@@ -669,7 +669,7 @@ const ShippingAddressPage: React.FC = () => {
     <Header />
     <div className="min-h-screen bg-[#eaeded] py-4">
       <div className="max-w-[1100px] mx-auto px-4 pb-24 md:pb-5">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5">
+        <div className="grid grid-cols-1 gap-5">
         {/* LEFT COLUMN */}
         <div>
         <div className="bg-white border border-[#ddd] rounded-lg p-3 sm:p-6 mb-4">
@@ -1025,45 +1025,6 @@ const ShippingAddressPage: React.FC = () => {
         </div>
         </div>{/* END LEFT COLUMN */}
 
-        {/* RIGHT COLUMN — Order Summary */}
-        <div>
-          <div className="bg-white border border-[#ddd] rounded-lg p-3 sm:p-5 sticky top-5">
-            <h2 className="text-[15px] sm:text-[18px] font-bold text-[#0f1111] mb-2 sm:mb-4">Order Summary</h2>
-
-            <div className="space-y-1.5 sm:space-y-2 mb-2 sm:mb-3">
-              <div className="flex justify-between text-[13px] sm:text-[14px]">
-                <span className="text-[#555]">Items ({activeCartItems.length})</span>
-                <span>{formatCurrency(pricing ? pricing.subtotal : Number.NaN, targetCurrency)}</span>
-              </div>
-              {(pricing?.offerDiscount || 0) > 0 && (
-                <div className="flex justify-between text-[13px] sm:text-[14px] text-[#067d62] font-semibold">
-                  <span>Savings</span>
-                  <span>-{formatCurrency(pricing?.offerDiscount || 0, targetCurrency)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-[13px] sm:text-[14px]">
-                <span className="text-[#555]">Shipping</span>
-                <span className="text-[#067d62] font-semibold">
-                  {(!pricing || pricingLoading)
-                    ? <span className="inline-block animate-pulse text-gray-400 text-xs">Calculating...</span>
-                    : (pricing.shipping || 0) === 0 ? 'FREE' : formatCurrency(pricing.shipping || 0, targetCurrency)}
-                </span>
-              </div>
-              {pricingLoading && (
-                <div className="text-[11px] sm:text-xs text-gray-400">Checking table rates and carrier fallback...</div>
-              )}
-            </div>
-
-            <div className="border-t-2 border-[#ddd] pt-2 sm:pt-3 mt-2 sm:mt-3 flex justify-between text-[15px] sm:text-[18px] font-bold text-[#b12704]">
-              <span>Order Total</span>
-              <span>{formatCurrency(pricing ? pricing.total : Number.NaN, targetCurrency)}</span>
-            </div>
-
-            <div className="flex items-center justify-center gap-1.5 text-[11px] sm:text-[12px] text-[#067d62] mt-2 sm:mt-3">
-              🔒 Secure checkout powered by Stripe
-            </div>
-          </div>
-        </div>
         </div>{/* END GRID */}
       </div>
     </div>
