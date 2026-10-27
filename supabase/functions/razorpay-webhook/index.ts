@@ -483,6 +483,31 @@ async function handleWebhook(req: Request, signature: string): Promise<Response>
       return json({ received: false, error: result.code }, retryable ? 500 : 200);
     }
 
+    // Razorpay refund lifecycle: keep refund_requests in sync (same RPC the Stripe webhook uses,
+    // matched on the stored refund id, so Stripe rows are never affected).
+    if (eventType === 'refund.processed' || eventType === 'refund.failed') {
+      const refund = event?.payload?.refund?.entity;
+      if (!refund?.id) {
+        await record('failed', 'Missing refund id');
+        return json({ received: true, error: 'Missing refund id' });
+      }
+      const rpc = await fetch(`${supabaseUrl()}/rest/v1/rpc/stripe_webhook_update_refund_status`, {
+        method: 'POST',
+        headers: supabaseHeaders(),
+        body: JSON.stringify({
+          p_stripe_refund_id: refund.id,
+          p_stripe_refund_status: eventType === 'refund.processed' ? 'succeeded' : 'failed',
+          p_failure_reason: eventType === 'refund.failed' ? 'Razorpay refund failed' : null,
+        }),
+      });
+      if (!rpc.ok) {
+        await record('failed', `refund sync failed: ${(await rpc.text()).slice(0, 300)}`);
+        return json({ received: false, error: 'refund sync failed' }, 500);
+      }
+      await record('processed');
+      return json({ received: true });
+    }
+
     // payment.failed and everything else: log only. The buyer can retry on the same
     // Razorpay order, so the order/snapshot is intentionally left alone.
     await record('processed');

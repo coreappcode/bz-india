@@ -64,6 +64,91 @@ function toStripeMinorUnit(amount: number, currency: string): number {
   return Math.round(amount * 100);
 }
 
+// Razorpay refund for orders paid through Razorpay. The refund id/status are stored in the
+// existing refund_requests columns (stripe_refund_id / stripe_refund_status) via the same RPC.
+async function refundViaRazorpay(p: {
+  ctx: { request_id: string; refund_number: string; order_id: string; amount: number | string; currency: string };
+  razorpayPaymentId: string;
+  authHeader: string;
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  cors: Record<string, string>;
+}): Promise<Response> {
+  const { ctx, cors } = p;
+  const keyId = Deno.env.get('RAZORPAY_KEY_ID')?.trim();
+  const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET')?.trim();
+  if (!keyId || !keySecret) return json({ error: 'Razorpay is not configured' }, 500, cors);
+  if (!p.razorpayPaymentId) {
+    return json({ error: 'Order has no Razorpay payment id; refund cannot be issued.' }, 422, cors);
+  }
+  if (String(ctx.currency).toUpperCase() !== 'INR') {
+    return json({ error: 'Razorpay refunds support INR only.' }, 422, cors);
+  }
+
+  const amountPaise = Math.round(Number(ctx.amount) * 100);
+  if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+    return json({ error: 'Invalid refund amount' }, 400, cors);
+  }
+
+  const rzpRes = await fetch(
+    `https://api.razorpay.com/v1/payments/${encodeURIComponent(p.razorpayPaymentId)}/refund`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${btoa(`${keyId}:${keySecret}`)}`,
+        // Re-running the same refund request will not double-refund.
+        'X-Refund-Idempotency': `refund_request_${ctx.request_id}`,
+      },
+      body: JSON.stringify({
+        amount: amountPaise,
+        speed: 'normal',
+        receipt: ctx.refund_number,
+        notes: {
+          refund_request_id: ctx.request_id,
+          refund_number: ctx.refund_number,
+          order_id: ctx.order_id,
+        },
+      }),
+    },
+  );
+  const refund = await rzpRes.json().catch(() => ({})) as {
+    id?: string; status?: string; error?: { description?: string };
+  };
+  if (!rzpRes.ok || !refund?.id) {
+    const msg = refund?.error?.description || `Razorpay refund failed (HTTP ${rzpRes.status})`;
+    console.error('[refund-payment] razorpay refund failed:', rzpRes.status, msg);
+    return json({ error: msg }, 502, cors);
+  }
+
+  // Razorpay: pending | processed | failed. Map to the values the shared RPC understands.
+  const status = refund.status === 'processed' ? 'succeeded' : (refund.status || 'pending');
+
+  const markRes = await fetch(`${p.supabaseUrl}/rest/v1/rpc/admin_mark_refund_paid`, {
+    method: 'POST',
+    headers: { apikey: p.serviceRoleKey, Authorization: p.authHeader, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      p_request_id: ctx.request_id,
+      p_stripe_refund_id: refund.id,
+      p_stripe_refund_status: status,
+    }),
+  });
+  if (!markRes.ok) {
+    const txt = await markRes.text().catch(() => '');
+    console.error('[refund-payment] admin_mark_refund_paid failed (razorpay):', markRes.status, txt);
+    return json({
+      ok: false,
+      warning: 'Razorpay refund created but DB update failed; please reconcile.',
+      razorpay_refund_id: refund.id,
+      stripe_refund_id: refund.id,
+      status,
+      db_error: txt,
+    }, 207, cors);
+  }
+
+  return json({ ok: true, provider: 'razorpay', razorpay_refund_id: refund.id, stripe_refund_id: refund.id, status }, 200, cors);
+}
+
 Deno.serve(async (req: Request) => {
   const cors = corsHeaders(req);
 
@@ -147,6 +232,25 @@ Deno.serve(async (req: Request) => {
     }
     if (!ctx.payment_intent_id) {
       return json({ error: 'Order has no Stripe payment_intent_id; refund cannot be issued.' }, 422, cors);
+    }
+
+    // ── 3b. Razorpay orders (bzead.in) are refunded through Razorpay; everything else stays on Stripe ──
+    const orderRes = await fetch(
+      `${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(ctx.order_id)}&select=payment_provider,razorpay_payment_id&limit=1`,
+      { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } },
+    );
+    const orderRows = orderRes.ok
+      ? await orderRes.json() as Array<{ payment_provider?: string | null; razorpay_payment_id?: string | null }>
+      : [];
+    if (orderRows[0]?.payment_provider === 'razorpay') {
+      return await refundViaRazorpay({
+        ctx,
+        razorpayPaymentId: orderRows[0].razorpay_payment_id || '',
+        authHeader,
+        supabaseUrl,
+        serviceRoleKey,
+        cors,
+      });
     }
 
     // ── 4. Call Stripe ────────────────────────────────────────
