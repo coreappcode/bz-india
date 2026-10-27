@@ -33,7 +33,7 @@ customHeaders:
       - key: Strict-Transport-Security
         value: 'max-age=31536000; includeSubDomains; preload'
       - key: Content-Security-Policy
-        value: "default-src 'self'; script-src 'self' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.stripe.com https://*.supabase.co wss://*.supabase.co https://open.er-api.com https://nominatim.openstreetmap.org; media-src 'self' https://*.supabase.co data: blob:; frame-src https://js.stripe.com https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'"
+        value: "default-src 'self'; script-src 'self' https://js.stripe.com https://checkout.razorpay.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.stripe.com https://api.razorpay.com https://lumberjack.razorpay.com https://checkout.razorpay.com https://*.supabase.co wss://*.supabase.co https://open.er-api.com https://nominatim.openstreetmap.org; media-src 'self' https://*.supabase.co data: blob:; frame-src https://js.stripe.com https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'"
   - pattern: '/assets/*'
     headers:
       - key: Cache-Control

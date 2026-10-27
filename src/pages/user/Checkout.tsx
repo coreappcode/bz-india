@@ -28,6 +28,14 @@ import { generateInvoicePdfBase64, type InvoicePdfData } from '../../utils/invoi
 import { buildInvoiceNumber } from '../../utils/idFormatter';
 import { isNativePlatform } from '../../mobile/nativePlatform';
 import { buildAppRedirect } from '../../utils/authEnv';
+import {
+  shouldUseRazorpay,
+  createRazorpayOrder,
+  openRazorpayCheckout,
+  verifyRazorpayPayment,
+  RazorpayDismissedError,
+  type RazorpayOrder,
+} from '../../lib/razorpayService';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -506,6 +514,9 @@ interface CheckoutLocationState {
 const CheckoutForm: React.FC<
   CheckoutLocationState & {
     paymentIntentId: string;
+    // 'razorpay' is used on bzead.in (INR) only; Stripe stays the default everywhere else.
+    paymentProvider?: 'stripe' | 'razorpay';
+    razorpayOrder?: RazorpayOrder | null;
     onSuccess?: (order: OrderData) => void;
     onCancel?: () => void;
     productMeta?: Map<string, { sku: string | null; hsn_code: string | null }>;
@@ -533,6 +544,8 @@ const CheckoutForm: React.FC<
   notes,
   currency: checkoutCurrency = 'INR',
   paymentIntentId,
+  paymentProvider = 'stripe',
+  razorpayOrder = null,
   onSuccess,
   onCancel: _onCancel,
   productMeta,
@@ -1197,6 +1210,244 @@ const CheckoutForm: React.FC<
     ]
   );
 
+  // ------ Razorpay submit (bzead.in, INR). Stripe's handleSubmit above is unchanged. ------
+  const handleRazorpaySubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!razorpayOrder) return;
+
+      setIsLoading(true);
+      setError(null);
+
+      const checkoutResultItems: CheckoutResultItem[] = items.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        price: item.price,
+        productImage: item.productImage,
+        selectedSize: item.selectedSize,
+        selectedColor: item.selectedColor,
+      }));
+      const goToResult = (result: CheckoutResultState) =>
+        navigate('/checkout/confirmation', { state: { checkoutResult: result } });
+
+      let paymentTaken = false;
+
+      try {
+        const billing = sameAsShipping ? shippingAddress : billingAddress;
+        const shippingAddressAny = shippingAddress as any;
+        const productIds = items.map((item) => item.productId);
+        const destinationPin = String(shippingAddress.postalCode || '').replace(/\s+/g, '');
+        const destCountryToken = (shippingAddress.country || '').trim().toUpperCase().replace(/\s+/g, '');
+        const isIntl = Boolean(destCountryToken) && !INDIA_COUNTRY_TOKENS.has(destCountryToken);
+
+        // Same pre-payment checks as the Stripe flow: never take money for an unshippable order.
+        const sellerId = items[0]?.sellerId || customerId;
+        if (!isIntl && destinationPin.length === 6) {
+          const svcResult = await checkDeliveryServiceability(destinationPin, sellerId);
+          if (!svcResult.serviceable) {
+            setError('Your pincode is not a serviceable area. Please try with another pincode.');
+            return;
+          }
+        }
+
+        let maxDeliveryDays = 0;
+        let expectedDeliveryDateIso: string | null = null;
+        if (!isIntl) {
+          const tatResult = await fetchMultiSellerTat(productIds, destinationPin, customerId);
+          maxDeliveryDays = tatResult.maxTatDays;
+          expectedDeliveryDateIso = tatResult.maxExpectedDate || null;
+        } else {
+          const rawEtd = estimatedDeliveryDate || null;
+          expectedDeliveryDateIso = (rawEtd && !isNaN(Date.parse(rawEtd))) ? rawEtd : null;
+          maxDeliveryDays = parseInt(estimatedDeliveryDays || '0', 10) || 0;
+        }
+
+        const enrichedShippingAddress = {
+          ...shippingAddress,
+          full_name: customerName || shippingAddressAny.full_name || shippingAddressAny.fullName || shippingAddressAny.name || null,
+          phone: customerPhone || shippingAddressAny.phone || shippingAddressAny.phone_number || null,
+          expected_delivery_days: maxDeliveryDays || null,
+          expected_delivery_date: expectedDeliveryDateIso || null,
+        };
+
+        // The server creates the order from this snapshot once Razorpay confirms the payment.
+        const rpcParams = buildCheckoutRpcParams({
+          customerId,
+          items,
+          productMeta,
+          shippingAddress: enrichedShippingAddress,
+          billingAddress: billing,
+          customerPhone,
+          notes,
+          paymentIntentId,
+          paymentMethod: 'razorpay',
+          checkoutCurrency,
+          shippingAmount,
+          actualShippingCost,
+          platformShippingMargin,
+          shippingCarrier: shippingCarrier || null,
+          shippingServiceLevel: shippingServiceLevel || null,
+          shippingProvider: effectiveShippingProvider,
+          shippingRateId: shippingRateId || null,
+          expectedDeliveryDateIso,
+          expectedDeliveryDays: maxDeliveryDays || null,
+        });
+        rpcParams.p_idempotency_key = `razorpay_${paymentIntentId}`;
+
+        const { error: snapshotErr } = await upsertCheckoutRecoverySnapshot({
+          userId: customerId,
+          paymentIntentId,
+          rpcParams,
+        });
+        if (snapshotErr) {
+          console.error('Failed to persist checkout snapshot before payment:', snapshotErr);
+          setError('Unable to prepare secure order recovery right now. Please try again.');
+          return;
+        }
+
+        let payment;
+        try {
+          payment = await openRazorpayCheckout({
+            order: razorpayOrder,
+            name: customerName,
+            email: customerEmail,
+            phone: customerPhone,
+            description: `${items.length} item${items.length !== 1 ? 's' : ''}`,
+          });
+        } catch (err) {
+          if (err instanceof RazorpayDismissedError) return;
+          throw err;
+        }
+        paymentTaken = true;
+
+        // Verify with the server (checks signature + amount, then creates/confirms the order).
+        let outcome = await verifyRazorpayPayment(payment);
+        for (let attempt = 0; attempt < 2 && outcome.status !== 'confirmed' && !(outcome.status === 'error' && outcome.fatal); attempt++) {
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          outcome = await verifyRazorpayPayment(payment);
+        }
+
+        let orderId: string | null = outcome.status === 'confirmed' ? outcome.orderId : null;
+        if (!orderId && !(outcome.status === 'error' && outcome.fatal)) {
+          // The Razorpay webhook may still settle it.
+          const recovered = await waitForRecoveredOrder(paymentIntentId, 12_000, 1_500);
+          if (recovered?.id && ['completed', 'succeeded', 'paid'].includes(String(recovered.payment_status))) {
+            orderId = String(recovered.id);
+          }
+        }
+
+        if (orderId) {
+          removeTempPendingOrder(paymentIntentId);
+          clearCheckoutCartState();
+          setSuccess(true);
+          goToResult({
+            paymentResult: 'success',
+            paymentIntentId,
+            orderId,
+            items: checkoutResultItems,
+            totalAmount,
+            currency: checkoutCurrency,
+          });
+          return;
+        }
+
+        if (outcome.status === 'error' && outcome.fatal) {
+          setError(`${outcome.message} Payment reference: ${payment.razorpay_payment_id}`);
+          return;
+        }
+
+        // Money was taken but confirmation is still in flight: show the order as processing.
+        const tempOrderId = getTemporaryOrderId(isIntl);
+        upsertTempPendingOrder({
+          tempOrderId,
+          paymentIntentId,
+          userId: customerId,
+          totalAmount,
+          currency: checkoutCurrency,
+          createdAt: new Date().toISOString(),
+          status: 'processing',
+          paymentStatus: 'pending',
+          items: items.map((item) => ({
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            price: item.price,
+            productImage: item.productImage,
+          })),
+        });
+        clearCheckoutCartState();
+        setSuccess(true);
+        navigate(
+          `/checkout/confirmation?payment_intent=${encodeURIComponent(paymentIntentId)}&temp_order_id=${encodeURIComponent(tempOrderId)}`,
+          {
+            state: {
+              checkoutResult: {
+                paymentResult: 'success',
+                paymentIntentId,
+                tempOrderId,
+                items: checkoutResultItems,
+                totalAmount,
+                currency: checkoutCurrency,
+              } as CheckoutResultState,
+            },
+          },
+        );
+      } catch (err) {
+        console.error('Razorpay checkout error:', err);
+        if (paymentTaken) {
+          const recovered = await waitForRecoveredOrder(paymentIntentId, 12_000, 1_500);
+          if (recovered?.id) {
+            clearCheckoutCartState();
+            goToResult({
+              paymentResult: 'success',
+              paymentIntentId,
+              orderId: String(recovered.id),
+              items: checkoutResultItems,
+              totalAmount,
+              currency: checkoutCurrency,
+            });
+            return;
+          }
+        }
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : 'Payment could not be completed right now. Please try again.',
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      razorpayOrder,
+      sameAsShipping,
+      billingAddress,
+      shippingAddress,
+      customerName,
+      customerEmail,
+      customerId,
+      customerPhone,
+      notes,
+      totalAmount,
+      items,
+      paymentIntentId,
+      checkoutCurrency,
+      navigate,
+      shippingAmount,
+      actualShippingCost,
+      platformShippingMargin,
+      shippingCarrier,
+      shippingServiceLevel,
+      shippingRateId,
+      effectiveShippingProvider,
+      productMeta,
+      estimatedDeliveryDate,
+      estimatedDeliveryDays,
+      clearCheckoutCartState,
+    ],
+  );
+
   // ------ COD order placement (inline) ------
   const handleCodOrder = useCallback(async () => {
     setIsLoading(true);
@@ -1522,14 +1773,20 @@ const CheckoutForm: React.FC<
         </div>
       )}
 
-      {/* Payment — Stripe PaymentElement (auto-renders only available methods) */}
+      {/* Payment — Stripe PaymentElement (auto-renders only available methods); Razorpay on bzead.in */}
       {!payViaCod && (
-        <form onSubmit={handleSubmit} className="bg-white border border-[#ddd] rounded-lg p-5 space-y-4">
+        <form onSubmit={paymentProvider === 'razorpay' ? handleRazorpaySubmit : handleSubmit} className="bg-white border border-[#ddd] rounded-lg p-5 space-y-4">
           <h3 className="text-sm font-bold text-[#0f1111] uppercase tracking-wide">Payment Method</h3>
-          <PaymentElement options={paymentElementOptions} />
+          {paymentProvider === 'razorpay' ? (
+            <p className="text-sm text-gray-600">
+              Pay securely with UPI, cards, net banking or wallets. A secure Razorpay window will open when you continue.
+            </p>
+          ) : (
+            <PaymentElement options={paymentElementOptions} />
+          )}
           <button
             type="submit"
-            disabled={!stripe || !elements || isLoading}
+            disabled={(paymentProvider === 'razorpay' ? !razorpayOrder : (!stripe || !elements)) || isLoading}
             className="w-full py-3.5 bg-[#ffd814] hover:bg-[#f7ca00] border border-[#fcd200] disabled:bg-gray-200 disabled:border-gray-300 disabled:cursor-not-allowed text-[#0f1111] rounded-lg text-[15px] font-bold cursor-pointer transition-colors flex items-center justify-center gap-2"
           >
             {isLoading ? (
@@ -1631,6 +1888,7 @@ const Checkout: React.FC = () => {
   const { rates, formatPrice } = useCurrency();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [razorpayOrder, setRazorpayOrder] = useState<RazorpayOrder | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [liveQuoteError, setLiveQuoteError] = useState<string | null>(null);
@@ -1783,6 +2041,30 @@ const Checkout: React.FC = () => {
         setInitError(null);
 
         const checkoutCurrency = (checkoutData.currency || 'INR').toUpperCase();
+
+        if (shouldUseRazorpay(checkoutCurrency)) {
+          const amountPaise = Math.round(liveQuote.totalAmount * 100);
+          if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+            throw new Error('Invalid checkout total. Please return to review and try again.');
+          }
+          const rzpSignature = `rzp-${amountPaise}`;
+          if (lastPiSignatureRef.current === rzpSignature && razorpayOrder) {
+            setLoading(false);
+            return;
+          }
+          const order = await createRazorpayOrder(amountPaise, {
+            customer_id: checkoutData.customerId,
+            item_count: String(checkoutData.items.length),
+          });
+          if (!cancelled) {
+            setRazorpayOrder(order);
+            // The Razorpay order id plays the role of the PaymentIntent id (orders.payment_intent_id).
+            setClientSecret(order.orderId);
+            setPaymentIntentId(order.orderId);
+            lastPiSignatureRef.current = rzpSignature;
+          }
+          return;
+        }
 
         const stripePublishableKey = String(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '').trim();
         if (!stripePublishableKey) {
@@ -2137,7 +2419,8 @@ const Checkout: React.FC = () => {
   }
 
   // --- Main checkout UI ---
-  const stripePromise = getStripe();
+  const useRazorpayCheckout = shouldUseRazorpay(checkoutData?.currency || 'INR');
+  const stripePromise = useRazorpayCheckout ? null : getStripe();
 
   return (
     <div className="min-h-screen bg-[#eaeded] flex flex-col">
@@ -2200,7 +2483,7 @@ const Checkout: React.FC = () => {
         ) : (
           <Elements
             stripe={stripePromise}
-            options={{
+            options={useRazorpayCheckout ? undefined : {
               clientSecret: clientSecret || '',
               appearance: {
                 theme: 'stripe',
@@ -2218,6 +2501,8 @@ const Checkout: React.FC = () => {
               actualShippingCost={liveQuote?.actualShippingCost ?? checkoutData.actualShippingCost}
               platformShippingMargin={liveQuote?.platformShippingMargin ?? checkoutData.platformShippingMargin}
               paymentIntentId={paymentIntentId || ''}
+              paymentProvider={useRazorpayCheckout ? 'razorpay' : 'stripe'}
+              razorpayOrder={razorpayOrder}
               productMeta={productMeta}
               codEligible={codEligible}
               isInternational={isInternational}
