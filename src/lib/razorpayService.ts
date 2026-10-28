@@ -5,7 +5,7 @@
  */
 
 import { supabase } from './supabase';
-import { isNativePlatform } from '../mobile/nativePlatform';
+import { isNativePlatform, nativePlatform } from '../mobile/nativePlatform';
 
 const RAZORPAY_HOSTS = new Set(['bzead.in', 'www.bzead.in']);
 const CHECKOUT_SCRIPT_SRC = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -36,14 +36,15 @@ export type RazorpayVerifyOutcome =
   | { status: 'error'; message: string; fatal?: boolean };
 
 /**
- * Razorpay is used only on bzead.in, only for INR, only on the web.
+ * Razorpay is used only on bzead.in and the India Android app, only for INR.
  * VITE_DISABLE_RAZORPAY=true is a kill switch that falls back to Stripe.
  * VITE_FORCE_RAZORPAY=true enables it on any host (local testing).
  */
 export function shouldUseRazorpay(currency: string): boolean {
-  if (isNativePlatform) return false;
   if (String(import.meta.env.VITE_DISABLE_RAZORPAY || '').toLowerCase() === 'true') return false;
   if (String(currency || '').toUpperCase() !== 'INR') return false;
+  // The India Android app (com.bzead.india) always pays with Razorpay.
+  if (isNativePlatform) return nativePlatform === 'android';
   if (String(import.meta.env.VITE_FORCE_RAZORPAY || '').toLowerCase() === 'true') return true;
   if (typeof window === 'undefined') return false;
   return RAZORPAY_HOSTS.has(window.location.hostname.toLowerCase());

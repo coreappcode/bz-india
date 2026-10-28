@@ -1,0 +1,28 @@
+{
+  "name": "bzead-india-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Capacitor Android shell for BZEAD India (com.bzead.india). Wraps the web build from ../dist-buyer-in.",
+  "scripts": {
+    "build:web": "npm --prefix .. run build:buyer:india",
+    "sync": "cap sync android",
+    "open": "cap open android",
+    "release:prepare": "npm run build:web && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/camera": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/dialog": "^8.0.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/geolocation": "^8.0.0",
+    "@capacitor/push-notifications": "^8.0.0",
+    "@capacitor/share": "^8.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "typescript": "~5.6.2"
+  }
+}
