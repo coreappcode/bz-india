@@ -8,7 +8,9 @@
     "sync": "cap sync android",
     "open": "cap open android",
     "generate:assets": "capacitor-assets generate --android --assetPath assets --iconBackgroundColor '#f5f5f5' --iconBackgroundColorDark '#f5f5f5' --splashBackgroundColor '#f5f5f5' --splashBackgroundColorDark '#f5f5f5' --logoSplashScale 0.9",
-    "release:prepare": "npm run build:web && cap sync android"
+    "release:prepare": "npm run build:web && cap sync android",
+    "build:debug": "cd android && ./gradlew assembleDebug",
+    "build:release": "cd android && ./gradlew assembleRelease bundleRelease && cd .. && mkdir -p build-output && cp android/app/build/outputs/apk/release/app-release.apk build-output/BZEAD-India.apk && cp android/app/build/outputs/bundle/release/app-release.aab build-output/BZEAD-India.aab"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",

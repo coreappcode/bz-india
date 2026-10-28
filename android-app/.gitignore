@@ -3,3 +3,4 @@ node_modules
 *.jks
 keystore.properties
 secure-downloads/
+build-output/

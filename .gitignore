@@ -58,3 +58,5 @@ dist-buyer-in
 
 # Local-only Android signing credentials; do not commit
 /android-app/secure-downloads/
+/android-app/build-output/
+/.android-sdk/

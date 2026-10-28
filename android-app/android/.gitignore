@@ -89,6 +89,9 @@ lint/tmp/
 # Android Profiling
 *.hprof
 
+# Local Kotlin/Gradle state
+.kotlin/
+
 # Cordova plugins for Capacitor
 capacitor-cordova-android-plugins
 

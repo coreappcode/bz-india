@@ -1,5 +1,23 @@
 apply plugin: 'com.android.application'
 
+def uploadStoreFile = System.getenv('BZEAD_UPLOAD_STORE_FILE')
+def uploadStorePassword = System.getenv('BZEAD_UPLOAD_STORE_PASSWORD')
+def uploadKeyAlias = System.getenv('BZEAD_UPLOAD_KEY_ALIAS')
+def uploadKeyPassword = System.getenv('BZEAD_UPLOAD_KEY_PASSWORD')
+def uploadSigningConfigured = [uploadStoreFile, uploadStorePassword, uploadKeyAlias, uploadKeyPassword]
+        .every { it != null && !it.trim().isEmpty() } &&
+        uploadStoreFile != null && file(uploadStoreFile).isFile()
+def releaseTaskRequested = gradle.startParameter.taskNames.any {
+    it.toLowerCase(java.util.Locale.ROOT).contains('release')
+}
+
+if (releaseTaskRequested && !uploadSigningConfigured) {
+    throw new GradleException(
+        'Release signing is not configured. Set BZEAD_UPLOAD_STORE_FILE, BZEAD_UPLOAD_STORE_PASSWORD, ' +
+        'BZEAD_UPLOAD_KEY_ALIAS, and BZEAD_UPLOAD_KEY_PASSWORD in the environment.'
+    )
+}
+
 android {
     namespace = "com.bzead.india"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +34,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    if (uploadSigningConfigured) {
+        signingConfigs {
+            release {
+                storeFile file(uploadStoreFile)
+                storePassword uploadStorePassword
+                keyAlias uploadKeyAlias
+                keyPassword uploadKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (uploadSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
