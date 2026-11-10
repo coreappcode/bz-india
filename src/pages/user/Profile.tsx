@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import logger from '../../utils/logger';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LogOut, CheckCircle, X, Trash2, Home, Briefcase, MapPin, Plus, Shield, User, Lock, Key, Download, Edit2, SlidersHorizontal, ChevronRight, Package, Heart, Bell, HelpCircle } from 'lucide-react';
+import { LogOut, CheckCircle, X, Trash2, Home, Briefcase, MapPin, Plus, Shield, User, Lock, Key, Download, Edit2, ChevronRight, Package, Heart, Bell, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { getUserAddresses } from '../../lib/adminService';
+import { getUserAddresses, deleteUserAddress } from '../../lib/adminService';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
 import { Skeleton, FormSkeleton, ListSkeleton } from '../../components/common/Skeleton';
@@ -21,6 +21,7 @@ type EditingField = 'name' | 'phone' | 'country' | null;
 type ProfileSection = 'personal' | 'security' | 'addresses';
 
 const PROFILE_SECTIONS: ProfileSection[] = ['personal', 'security', 'addresses'];
+const PROFILE_ADDRESS_PREVIEW = 2;
 
 interface ProfileAddress {
   id: string;
@@ -63,6 +64,8 @@ export const Profile: React.FC = () => {
   const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
   const [addresses, setAddresses] = useState<ProfileAddress[]>([]);
   const [addressesLoading, setAddressesLoading] = useState(true);
+  const [addressToDelete, setAddressToDelete] = useState<ProfileAddress | null>(null);
+  const [deletingAddress, setDeletingAddress] = useState(false);
   // Ref guards — prevent duplicate DB writes and avoid re-triggering fetch on location state
   const locationLockedCountryIdRef = useRef('');
   const locationLockedCountryNameRef = useRef('');
@@ -458,6 +461,24 @@ export const Profile: React.FC = () => {
     }
   };
 
+  const handleConfirmDeleteAddress = async () => {
+    if (!addressToDelete) return;
+    try {
+      setDeletingAddress(true);
+      const result = await deleteUserAddress(addressToDelete.id);
+      if (!result.success) throw new Error(result.error || 'Address could not be deleted.');
+      setAddresses((current) => current.filter((a) => a.id !== addressToDelete.id));
+      setSuccessMessage('Address deleted successfully!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      logger.error(err as Error, { context: 'Failed to delete address from profile' });
+      setError(err instanceof Error ? err.message : 'Failed to delete address');
+    } finally {
+      setDeletingAddress(false);
+      setAddressToDelete(null);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate('/');
@@ -673,7 +694,7 @@ export const Profile: React.FC = () => {
           <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
           <p className="text-sm text-slate-600 font-medium">No saved addresses</p>
           <p className="text-xs text-slate-400 mt-1 mb-4">Add a delivery address for faster checkout</p>
-          <button type="button" onClick={() => navigate('/user/addresses')} className="acct-btn-primary">
+          <button type="button" onClick={() => navigate('/user/addresses/new')} className="acct-btn-primary">
             <Plus className="w-4 h-4" />
             Add New Address
           </button>
@@ -684,7 +705,7 @@ export const Profile: React.FC = () => {
     return (
       <>
         <div className="acct-address-list">
-          {addresses.map((address) => {
+          {addresses.slice(0, PROFILE_ADDRESS_PREVIEW).map((address) => {
             const { line1, line2, country } = formatAddressLine(address);
             return (
               <div key={address.id} className="acct-address-row">
@@ -701,13 +722,18 @@ export const Profile: React.FC = () => {
                   {address.phone_number && <p className="text-xs text-slate-500 mt-0.5">{address.phone_number}</p>}
                 </div>
                 <div className="acct-address-actions">
-                  <button type="button" onClick={() => navigate('/user/addresses')} className="profile-address-link-btn">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/user/addresses/${address.id}/edit`)}
+                    className="profile-address-link-btn"
+                  >
                     <Edit2 className="w-3.5 h-3.5" />
                     Edit
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigate('/user/addresses')}
+                    onClick={() => setAddressToDelete(address)}
+                    data-no-global-confirm="true"
                     className="profile-address-link-btn profile-address-link-btn--danger"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -718,14 +744,16 @@ export const Profile: React.FC = () => {
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={() => navigate('/user/addresses')}
-          className="profile-address-manage-btn mt-5"
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          Manage Addresses
-        </button>
+        {addresses.length > PROFILE_ADDRESS_PREVIEW && (
+          <button
+            type="button"
+            onClick={() => navigate('/user/addresses')}
+            className="profile-address-manage-btn mt-5"
+          >
+            See more ({addresses.length - PROFILE_ADDRESS_PREVIEW} more)
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
       </>
     );
   };
@@ -807,7 +835,7 @@ export const Profile: React.FC = () => {
                   <p className="acct-panel-subtitle">{meta.subtitle}</p>
                 </div>
                 {activeSection === 'addresses' && addresses.length > 0 && (
-                  <button type="button" onClick={() => navigate('/user/addresses')} className="profile-address-add-link">
+                  <button type="button" onClick={() => navigate('/user/addresses/new')} className="profile-address-add-link">
                     <Plus className="w-4 h-4" />
                     Add New Address
                   </button>
@@ -858,6 +886,39 @@ export const Profile: React.FC = () => {
                     className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition font-semibold"
                   >
                     Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {addressToDelete && (
+            <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-address-title">
+              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm border border-slate-100">
+                <h3 id="delete-address-title" className="text-lg font-bold text-slate-900 mb-2">Delete address?</h3>
+                <p className="text-sm text-slate-600 mb-1 font-medium">{addressToDelete.full_name}</p>
+                <p className="text-sm text-slate-500 mb-5">
+                  {[addressToDelete.street_address_1, addressToDelete.city, addressToDelete.postal_code].filter(Boolean).join(', ')}
+                  <br />
+                  This cannot be undone.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setAddressToDelete(null)}
+                    disabled={deletingAddress}
+                    type="button"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDeleteAddress}
+                    disabled={deletingAddress}
+                    data-no-global-confirm="true"
+                    type="button"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition font-semibold disabled:opacity-50"
+                  >
+                    {deletingAddress ? 'Deleting...' : 'Yes, Delete'}
                   </button>
                 </div>
               </div>

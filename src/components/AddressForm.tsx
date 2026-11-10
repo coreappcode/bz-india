@@ -149,273 +149,226 @@ const AddressForm: React.FC<AddressFormProps> = ({
     }
   };
 
+  const inputClass = (field: string) =>
+    `addr-input ${errors[field] ? 'addr-input--error' : ''}`;
+
+  const typeOptions: Array<{ value: 'home' | 'work' | 'other'; label: string; icon: React.ReactNode }> = [
+    { value: 'home', label: 'Home', icon: <Home size={16} /> },
+    { value: 'work', label: 'Work', icon: <Briefcase size={16} /> },
+    { value: 'other', label: 'Other', icon: <MoreHorizontal size={16} /> },
+  ];
+
+  const renderError = (field: string) =>
+    errors[field] ? <p className="addr-error">{errors[field]}</p> : null;
+
   return (
-    <form onSubmit={handleSubmit} className="bg-gray-50 border border-gray-200 rounded-2xl p-6 md:p-8">
-      <h3 className="text-lg font-semibold text-amber-600 mb-6">
-        {initialData ? 'Edit Address' : 'Add New Address'}
-      </h3>
+    <form onSubmit={handleSubmit} className="addr-form" noValidate>
+      <section className="addr-section">
+        <h2 className="addr-section-title">Contact details</h2>
+        <div className="addr-grid">
+          <div className="addr-field">
+            <label className="addr-label" htmlFor="addr-fullName">Full name <span>*</span></label>
+            <input
+              id="addr-fullName"
+              type="text"
+              name="fullName"
+              autoComplete="name"
+              value={formData.fullName || ''}
+              onChange={handleChange}
+              placeholder="First and last name"
+              className={inputClass('fullName')}
+            />
+            {renderError('fullName')}
+          </div>
 
-      <div className="space-y-6">
-        {/* Full Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Full Name <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="fullName"
-            value={formData.fullName || ''}
-            onChange={handleChange}
-            placeholder="Enter your full name"
-            className={`w-full px-4 py-3 bg-gray-100 border rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors ${
-              errors.fullName ? 'border-red-500' : 'border-gray-200'
-            }`}
-          />
-          {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
-        </div>
+          <div className="addr-field">
+            <label className="addr-label" htmlFor="addr-phoneNumber">Mobile number <span>*</span></label>
+            <input
+              id="addr-phoneNumber"
+              type="tel"
+              name="phoneNumber"
+              autoComplete="tel"
+              value={formData.phoneNumber || ''}
+              onChange={handleChange}
+              placeholder="+91 99999 99999"
+              className={inputClass('phoneNumber')}
+            />
+            {renderError('phoneNumber')}
+          </div>
 
-        {/* Phone Number */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Phone Number <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="tel"
-            name="phoneNumber"
-            value={formData.phoneNumber || ''}
-            onChange={handleChange}
-            placeholder="+91 99999 99999"
-            className={`w-full px-4 py-3 bg-gray-100 border rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors ${
-              errors.phoneNumber ? 'border-red-500' : 'border-gray-200'
-            }`}
-          />
-          {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber}</p>}
-        </div>
-
-        {/* Email Address */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Email Address <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email || ''}
-            onChange={handleChange}
-            placeholder="your@email.com"
-            className={`w-full px-4 py-3 bg-gray-100 border rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors ${
-              errors.email ? 'border-red-500' : 'border-gray-200'
-            }`}
-          />
-          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-        </div>
-
-        {/* Country */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Country <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="country"
-            value={formData.country || ''}
-            onChange={handleChange}
-            disabled={countriesLoading}
-            className={`w-full px-4 py-3 bg-gray-100 border rounded-lg text-gray-900 focus:outline-none focus:border-amber-500 transition-colors ${
-              errors.country ? 'border-red-500' : 'border-gray-200'
-            }`}
-          >
-            <option value="">Select a country</option>
-            {formData.country && !countries.some((country) => country.country_name === formData.country) && (
-              <option value={formData.country}>{formData.country}</option>
-            )}
-            {countries.map((country) => (
-              <option key={country.id} value={country.country_name}>
-                {country.country_name}
-              </option>
-            ))}
-          </select>
-          {countriesLoading && <p className="text-gray-500 text-xs mt-1">Loading countries...</p>}
-          {countriesError && (
-            <p className="text-red-500 text-xs mt-1">Unable to load countries. Please refresh and try again.</p>
-          )}
-          {errors.country && <p className="text-red-500 text-xs mt-1">{errors.country}</p>}
-        </div>
-
-        {/* Street Address Line 1 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Street Address Line 1 <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="streetAddress1"
-            value={formData.streetAddress1 || ''}
-            onChange={handleChange}
-            placeholder="Enter your street address"
-            className={`w-full px-4 py-3 bg-gray-100 border rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors ${
-              errors.streetAddress1 ? 'border-red-500' : 'border-gray-200'
-            }`}
-          />
-          {errors.streetAddress1 && (
-            <p className="text-red-500 text-xs mt-1">{errors.streetAddress1}</p>
-          )}
-        </div>
-
-        {/* Street Address Line 2 (Optional) */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Street Address Line 2 (Optional)
-          </label>
-          <input
-            type="text"
-            name="streetAddress2"
-            value={formData.streetAddress2 || ''}
-            onChange={handleChange}
-            placeholder="Apartment, suite, etc. (Optional)"
-            className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors"
-          />
-        </div>
-
-        {/* City / Town */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            City / Town <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="city"
-            value={formData.city || ''}
-            onChange={handleChange}
-            placeholder="Enter your city"
-            className={`w-full px-4 py-3 bg-gray-100 border rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors ${
-              errors.city ? 'border-red-500' : 'border-gray-200'
-            }`}
-          />
-          {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
-        </div>
-
-        {/* State / Province / Region */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            State / Province / Region <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="state"
-            value={formData.state || ''}
-            onChange={handleChange}
-            placeholder="Enter your state or province"
-            className={`w-full px-4 py-3 bg-gray-100 border rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors ${
-              errors.state ? 'border-red-500' : 'border-gray-200'
-            }`}
-          />
-          {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
-        </div>
-
-        {/* Postal / ZIP Code */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Postal / ZIP Code <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="postalCode"
-            value={formData.postalCode || ''}
-            onChange={handleChange}
-            placeholder="e.g., 110001"
-            className={`w-full px-4 py-3 bg-gray-100 border rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors ${
-              errors.postalCode ? 'border-red-500' : 'border-gray-200'
-            }`}
-          />
-          {errors.postalCode && <p className="text-red-500 text-xs mt-1">{errors.postalCode}</p>}
-        </div>
-
-        {/* Address Type */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-3">Address Type</label>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="addressType"
-                value="home"
-                checked={formData.addressType === 'home'}
-                onChange={handleChange}
-                className="w-4 h-4 text-amber-600 cursor-pointer"
-              />
-              <Home size={16} className="text-gray-500" />
-              <span className="text-sm text-gray-600">Home</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="addressType"
-                value="work"
-                checked={formData.addressType === 'work'}
-                onChange={handleChange}
-                className="w-4 h-4 text-amber-600 cursor-pointer"
-              />
-              <Briefcase size={16} className="text-gray-500" />
-              <span className="text-sm text-gray-600">Work</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="addressType"
-                value="other"
-                checked={formData.addressType === 'other'}
-                onChange={handleChange}
-                className="w-4 h-4 text-amber-600 cursor-pointer"
-              />
-              <MoreHorizontal size={16} className="text-gray-500" />
-              <span className="text-sm text-gray-600">Other</span>
-            </label>
+          <div className="addr-field addr-field--full">
+            <label className="addr-label" htmlFor="addr-email">Email address <span>*</span></label>
+            <input
+              id="addr-email"
+              type="email"
+              name="email"
+              autoComplete="email"
+              value={formData.email || ''}
+              onChange={handleChange}
+              placeholder="your@email.com"
+              className={inputClass('email')}
+            />
+            {renderError('email')}
           </div>
         </div>
+      </section>
 
-        {/* Delivery Notes */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
-            Delivery Notes (Optional)
-          </label>
-          <textarea
-            name="deliveryNotes"
-            value={formData.deliveryNotes || ''}
-            onChange={handleChange}
-            placeholder="Leave at door / call before delivery / gate code / etc."
-            rows={3}
-            className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors resize-none"
-          />
+      <section className="addr-section">
+        <h2 className="addr-section-title">Delivery address</h2>
+        <div className="addr-grid">
+          <div className="addr-field addr-field--full">
+            <label className="addr-label" htmlFor="addr-country">Country / Region <span>*</span></label>
+            <select
+              id="addr-country"
+              name="country"
+              value={formData.country || ''}
+              onChange={handleChange}
+              disabled={countriesLoading}
+              className={inputClass('country')}
+            >
+              <option value="">Select a country</option>
+              {formData.country && !countries.some((country) => country.country_name === formData.country) && (
+                <option value={formData.country}>{formData.country}</option>
+              )}
+              {countries.map((country) => (
+                <option key={country.id} value={country.country_name}>
+                  {country.country_name}
+                </option>
+              ))}
+            </select>
+            {countriesLoading && <p className="addr-hint">Loading countries...</p>}
+            {countriesError && (
+              <p className="addr-error">Unable to load countries. Please refresh and try again.</p>
+            )}
+            {renderError('country')}
+          </div>
+
+          <div className="addr-field addr-field--full">
+            <label className="addr-label" htmlFor="addr-streetAddress1">
+              Flat, house no., building, company, apartment <span>*</span>
+            </label>
+            <input
+              id="addr-streetAddress1"
+              type="text"
+              name="streetAddress1"
+              autoComplete="address-line1"
+              value={formData.streetAddress1 || ''}
+              onChange={handleChange}
+              className={inputClass('streetAddress1')}
+            />
+            {renderError('streetAddress1')}
+          </div>
+
+          <div className="addr-field addr-field--full">
+            <label className="addr-label" htmlFor="addr-streetAddress2">
+              Area, street, sector, village <span className="addr-optional">(optional)</span>
+            </label>
+            <input
+              id="addr-streetAddress2"
+              type="text"
+              name="streetAddress2"
+              autoComplete="address-line2"
+              value={formData.streetAddress2 || ''}
+              onChange={handleChange}
+              className="addr-input"
+            />
+          </div>
+
+          <div className="addr-field">
+            <label className="addr-label" htmlFor="addr-postalCode">PIN / ZIP code <span>*</span></label>
+            <input
+              id="addr-postalCode"
+              type="text"
+              name="postalCode"
+              autoComplete="postal-code"
+              value={formData.postalCode || ''}
+              onChange={handleChange}
+              placeholder="e.g. 670702"
+              className={inputClass('postalCode')}
+            />
+            {renderError('postalCode')}
+          </div>
+
+          <div className="addr-field">
+            <label className="addr-label" htmlFor="addr-city">Town / City <span>*</span></label>
+            <input
+              id="addr-city"
+              type="text"
+              name="city"
+              autoComplete="address-level2"
+              value={formData.city || ''}
+              onChange={handleChange}
+              className={inputClass('city')}
+            />
+            {renderError('city')}
+          </div>
+
+          <div className="addr-field addr-field--full">
+            <label className="addr-label" htmlFor="addr-state">State / Province / Region <span>*</span></label>
+            <input
+              id="addr-state"
+              type="text"
+              name="state"
+              autoComplete="address-level1"
+              value={formData.state || ''}
+              onChange={handleChange}
+              className={inputClass('state')}
+            />
+            {renderError('state')}
+          </div>
         </div>
+      </section>
 
-        {/* Default Address Checkbox */}
-        <label className="flex items-center gap-2 cursor-pointer">
+      <section className="addr-section">
+        <h2 className="addr-section-title">Address type</h2>
+        <div className="addr-type-group" role="radiogroup" aria-label="Address type">
+          {typeOptions.map((option) => {
+            const selected = formData.addressType === option.value;
+            return (
+              <label key={option.value} className={`addr-type-chip ${selected ? 'addr-type-chip--active' : ''}`}>
+                <input
+                  type="radio"
+                  name="addressType"
+                  value={option.value}
+                  checked={selected}
+                  onChange={handleChange}
+                  className="sr-only"
+                />
+                {option.icon}
+                <span>{option.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="addr-section">
+        <h2 className="addr-section-title">Delivery instructions <span className="addr-optional">(optional)</span></h2>
+        <textarea
+          name="deliveryNotes"
+          value={formData.deliveryNotes || ''}
+          onChange={handleChange}
+          placeholder="Leave at door, call before delivery, gate code, etc."
+          rows={3}
+          className="addr-input addr-textarea"
+        />
+        <label className="addr-default-check">
           <input
             type="checkbox"
             name="isDefault"
             checked={formData.isDefault || false}
             onChange={handleChange}
-            className="w-4 h-4 text-amber-600 cursor-pointer"
           />
-          <span className="text-sm text-gray-600">Set as default address</span>
+          <span>Make this my default address</span>
         </label>
-      </div>
+      </section>
 
-      {/* Action Buttons */}
-      <div className="flex gap-4 mt-8">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex-1 px-4 py-3 bg-gray-100 text-gray-900 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors font-medium"
-        >
+      <div className="addr-actions">
+        <button type="button" onClick={onCancel} className="addr-btn addr-btn--secondary">
           Cancel
         </button>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="flex-1 px-4 py-3 bg-amber-500 text-black rounded-lg hover:bg-yellow-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Saving...' : initialData ? 'Update Address' : 'Add Address'}
+        <button type="submit" disabled={isLoading} className="addr-btn addr-btn--primary">
+          {isLoading ? 'Saving...' : initialData ? 'Update address' : 'Save address'}
         </button>
       </div>
     </form>

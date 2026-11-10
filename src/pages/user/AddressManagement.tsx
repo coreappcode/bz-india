@@ -3,15 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
 import { ListSkeleton } from '../../components/common/Skeleton';
-import AddressForm from '../../components/AddressForm';
 import type { Address } from '../../components/AddressForm';
 import { MapPin, Edit2, Trash2, Plus, ArrowLeft, Home, Briefcase, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import logger from '../../utils/logger';
 import {
   getUserAddresses,
-  createUserAddress,
-  updateUserAddress,
   deleteUserAddress as deleteAddressApi,
   setDefaultUserAddress,
 } from '../../lib/adminService';
@@ -20,15 +17,11 @@ const UserAddressManagement: React.FC = () => {
   const navigate = useNavigate();
   const { user, currentAuthUser, loading: authLoading } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
-  const editingAddress = editingId ? addresses.find((a) => a.id === editingId) : undefined;
 
   const loadAddresses = async () => {
     try {
@@ -71,62 +64,6 @@ const UserAddressManagement: React.FC = () => {
     void loadAddresses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentAuthUser]);
-
-  const handleAddAddress = async (data: Address) => {
-    try {
-      setIsSaving(true);
-      setError(null);
-
-        const userId = user?.id || currentAuthUser?.userId;
-      if (!userId) throw new Error('User not authenticated');
-
-      if (editingId) {
-        await updateUserAddress(editingId, {
-          full_name: data.fullName,
-          phone_number: data.phoneNumber,
-          email: data.email || '',
-          country: data.country || '',
-          street_address_1: data.streetAddress1,
-          street_address_2: data.streetAddress2 || '',
-          city: data.city,
-          state: data.state,
-          postal_code: data.postalCode,
-          address_type: data.addressType,
-          is_default: data.isDefault,
-          delivery_notes: data.deliveryNotes || '',
-        });
-      } else {
-        const isFirst = addresses.length === 0;
-        await createUserAddress({
-          user_id: userId,
-          full_name: data.fullName,
-          phone_number: data.phoneNumber,
-          email: data.email || '',
-          country: data.country || '',
-          street_address_1: data.streetAddress1,
-          street_address_2: data.streetAddress2 || '',
-          city: data.city,
-          state: data.state,
-          postal_code: data.postalCode,
-          address_type: data.addressType,
-          is_default: data.isDefault || isFirst,
-          delivery_notes: data.deliveryNotes || '',
-        });
-      }
-
-      await loadAddresses();
-      const wasEditing = !!editingId;
-      setShowForm(false);
-      setEditingId(null);
-      setSuccessMessage(wasEditing ? 'Address updated!' : 'Address added!');
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      logger.error(err as Error, { context: 'Failed to add address' });
-      setError('Failed to save address');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleDeleteAddress = async (id: string) => {
     try {
@@ -172,15 +109,7 @@ const UserAddressManagement: React.FC = () => {
     }
   };
 
-  const handleEditClick = (id: string) => {
-    setEditingId(id);
-    setShowForm(true);
-  };
-
-  const handleCancel = () => {
-    setShowForm(false);
-    setEditingId(null);
-  };
+  const handleEditClick = (id: string) => navigate(`/user/addresses/${id}/edit`);
 
   const getAddressTypeIcon = (type: 'home' | 'work' | 'other') => {
     switch (type) {
@@ -239,29 +168,15 @@ const UserAddressManagement: React.FC = () => {
           <p className="text-gray-500">Manage your delivery addresses</p>
         </div>
 
-        {/* Form */}
-        {showForm && (
-          <div className="mb-8">
-            <AddressForm
-              initialData={editingAddress}
-              onSubmit={handleAddAddress}
-              onCancel={handleCancel}
-              isLoading={isSaving}
-            />
-          </div>
-        )}
-
         {/* Add Address Button */}
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
+        <button
+            onClick={() => navigate('/user/addresses/new')}
             disabled={isSaving}
             className="mb-8 flex items-center gap-2 px-6 py-3 bg-amber-500 text-black rounded-lg hover:bg-yellow-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus size={20} />}
             Add New Address
           </button>
-        )}
 
         {/* Addresses List */}
         {addresses.length > 0 ? (
@@ -361,7 +276,7 @@ const UserAddressManagement: React.FC = () => {
             <MapPin size={36} className="mx-auto mb-4 text-gray-600" />
             <p className="text-gray-500 mb-4">No addresses added yet</p>
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => navigate('/user/addresses/new')}
               className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 text-black rounded-lg hover:bg-yellow-400 transition-colors font-medium"
             >
               <Plus size={18} />

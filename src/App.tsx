@@ -77,6 +77,7 @@ const Profile = lazyRetry(() => import('./pages/user/Profile'));
 const OrderDetails = lazyRetry(() => import('./pages/user/OrderDetails'));
 const WriteReview = lazyRetry(() => import('./pages/user/WriteReview'));
 const UserAddressManagement = lazyRetry(() => import('./pages/user/AddressManagement'));
+const AddressEditor = lazyRetry(() => import('./pages/user/AddressEditor'));
 const Checkout = lazyRetry(() => import('./pages/user/Checkout'));
 const ShippingAddressPage = lazyRetry(() => import('./pages/user/ShippingAddress'));
 const OrderSummaryPage = lazyRetry(() => import('./pages/user/OrderSummary'));
@@ -309,6 +310,8 @@ function App() {
                           <Route path="/profile" element={<Profile />} />
                           <Route path="/products/:productId/review" element={<WriteReview />} />
                           <Route path="/user/addresses" element={<UserAddressManagement />} />
+                          <Route path="/user/addresses/new" element={<AddressEditor />} />
+                          <Route path="/user/addresses/:addressId/edit" element={<AddressEditor />} />
 
                           {/* Checkout Flow Routes */}
                           <Route path="/checkout/shipping" element={<ShippingAddressPage />} />
