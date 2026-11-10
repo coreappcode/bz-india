@@ -8,7 +8,7 @@ import { useCart } from '../../contexts/CartContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useWishlist } from '../../contexts/WishlistContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { ShoppingCart, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
+import { ShoppingCart, Loader2, AlertTriangle, Trash2, Heart } from 'lucide-react';
 import {
   calculateCheckoutPricing,
   fetchPublicProductPrices,
@@ -72,9 +72,8 @@ export const CartPage: React.FC = () => {
     }, 300);
   };
 
-  const handleMoveToWishlist = (cartItem: (typeof cartItems)[0]) => {
+  const handleAddToWishlist = (cartItem: (typeof cartItems)[0]) => {
     addToWishlist(cartItem.product);
-    removeFromCart(cartItem.cartItemId);
   };
 
   const selectedCountry = useDestinationCountry({
@@ -353,7 +352,7 @@ export const CartPage: React.FC = () => {
                     onChange={toggleSelectAll}
                     className="w-[18px] h-[18px] accent-[#ff9900] cursor-pointer"
                   />
-                  <span className="hidden md:inline">Select All Items</span>
+                  <span>Select All Items</span>
                 </label>
                 <button
                   onClick={toggleSelectAll}
@@ -365,7 +364,7 @@ export const CartPage: React.FC = () => {
 
               {/* ─── Cart Items ─── */}
               <div
-                className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white px-2 md:block md:overflow-visible md:px-0"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 px-0 md:block md:overflow-visible md:bg-slate-50"
               >
                 {cartItems.map((cartItem) => {
                 const itemPrice = hasVariantSelection(cartItem)
@@ -379,30 +378,51 @@ export const CartPage: React.FC = () => {
                 return (
                   <div
                     key={cartItem.cartItemId}
-                    className={`flex gap-2.5 border border-[#ddd] px-3 py-2.5 last:mb-0 md:border-x-0 md:border-t-0 md:px-0 sm:gap-4 sm:py-4 ${isUpdating ? 'opacity-50 pointer-events-none' : ''}`}
+                    className={`mb-2 bg-white border border-slate-200 last:mb-0 ${isUpdating ? 'opacity-50 pointer-events-none' : ''}`}
                   >
-                    {/* Checkbox */}
-                    <div className="pt-1 shrink-0">
+                    <div className="flex gap-3 p-3 sm:p-4">
                       <input
                         type="checkbox"
                         checked={selectedItemIds.includes(cartItem.cartItemId)}
                         onChange={() => toggleSelectItem(cartItem.cartItemId)}
-                        className="w-[18px] h-[18px] accent-[#ff9900] cursor-pointer"
+                        aria-label={`Select ${cartItem.product.name}`}
+                        className="mt-1 w-[18px] h-[18px] accent-[#ff9900] cursor-pointer shrink-0"
                       />
-                    </div>
-
-                    {/* Image */}
-                    <div className="shrink-0 rounded-lg border border-[#eee] bg-[#f9f9f9] overflow-hidden w-[78px] h-[78px] sm:w-[90px] sm:h-[90px] md:w-[100px] md:h-[100px]">
-                      <img
-                        src={cartItem.product.image_url}
-                        alt={cartItem.product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-
-                    {/* Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[15px] sm:text-[15px] font-semibold leading-snug line-clamp-2 mb-0.5">
+                      <div className="flex shrink-0 flex-col items-center gap-2">
+                        <div className="rounded border border-slate-200 bg-white overflow-hidden w-[72px] h-[72px] sm:w-[96px] sm:h-[96px]">
+                          <img
+                            src={cartItem.product.image_url}
+                            alt={cartItem.product.name}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="flex items-center border border-slate-200 rounded overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(cartItem.cartItemId, cartItem.quantity - 1)}
+                            disabled={isUpdating}
+                            aria-label={`Decrease quantity of ${cartItem.product.name}`}
+                            className="w-7 h-8 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            −
+                          </button>
+                          <span className="min-w-7 h-8 flex items-center justify-center text-sm font-semibold border-x border-slate-200">
+                            {cartItem.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(cartItem.cartItemId, cartItem.quantity + 1)}
+                            disabled={isUpdating || cartItem.quantity >= cartItem.product.stock}
+                            aria-label={`Increase quantity of ${cartItem.product.name}`}
+                            className="w-7 h-8 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            +
+                          </button>
+                        </div>
+                        {isUpdating && <Loader2 className="w-4 h-4 text-[#ff9900] animate-spin" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                      <div className="text-[14px] sm:text-[15px] font-semibold leading-snug line-clamp-2 mb-1">
                         <Link
                           to={`/products/${cartItem.product.slug || cartItem.product.id}`}
                           className="text-[#0f1111] hover:text-[#c45500] hover:underline transition-colors"
@@ -425,7 +445,14 @@ export const CartPage: React.FC = () => {
                           This option is no longer available. Delete it, or open the product and add it again.
                         </p>
                       )}
-                      <div className="flex flex-wrap gap-1.5 mb-2">
+                      <div className="mt-2 text-[16px] sm:text-[18px] font-bold text-[#b12704]">
+                        {unavailableReason
+                          ? 'Unavailable'
+                          : typeof itemPrice === 'number'
+                            ? formatPrice(itemPrice, resolvePublicPriceSourceCurrency(cartItem))
+                            : 'Loading…'}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
                         {cartItem.product.stock > 0 ? (
                           <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded bg-[#d1fae5] text-[#047857]">In Stock</span>
                         ) : (
@@ -433,61 +460,30 @@ export const CartPage: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Quantity Controls + Actions */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
-                          <button
-                            onClick={() => handleUpdateQuantity(cartItem.cartItemId, cartItem.quantity - 1)}
-                            disabled={isUpdating}
-                            className="w-8 h-8 bg-[#f0f0f0] border-none text-[16px] font-bold text-[#0f1111] cursor-pointer hover:bg-[#e0e0e0] disabled:opacity-50 flex items-center justify-center"
-                          >
-                            −
-                          </button>
-                          <div className="w-10 h-8 flex items-center justify-center text-[14px] font-semibold border-x border-[#ddd] bg-white">
-                            {cartItem.quantity}
-                          </div>
-                          <button
-                            onClick={() => handleUpdateQuantity(cartItem.cartItemId, cartItem.quantity + 1)}
-                            disabled={isUpdating}
-                            className="w-8 h-8 bg-[#f0f0f0] border-none text-[16px] font-bold text-[#0f1111] cursor-pointer hover:bg-[#e0e0e0] disabled:opacity-50 flex items-center justify-center"
-                          >
-                            +
-                          </button>
-                        </div>
-
-                        {isUpdating && <Loader2 className="w-4 h-4 text-[#ff9900] animate-spin" />}
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleMoveToWishlist(cartItem)}
-                            disabled={isUpdating}
-                            className="text-[11px] text-[#007185] font-semibold bg-transparent border-none cursor-pointer hover:text-[#c7511f] hover:underline disabled:opacity-50 p-0 md:after:content-['|'] md:after:ml-3 md:after:text-[#ddd]"
-                          >
-                            Move to Wishlist
-                          </button>
-                          <button
-                            onClick={() => setConfirmRemoveId(cartItem.cartItemId)}
-                            disabled={isUpdating}
-                            data-no-global-confirm="true"
-                            aria-label={`Remove ${cartItem.product.name} from cart`}
-                            className="ml-auto text-[#0f1111] bg-transparent border-none cursor-pointer hover:text-[#c7511f] disabled:opacity-50 p-1 md:static md:p-0"
-                          >
-                            <Trash2 className="h-4 w-4 md:hidden" aria-hidden="true" />
-                            <span className="hidden md:inline">Delete</span>
-                          </button>
-                        </div>
                       </div>
                     </div>
-
-                    {/* Price Column */}
-                    <div className="text-right shrink-0 min-w-[60px] sm:min-w-[90px]">
-                      <div className="text-[16px] sm:text-[18px] font-bold text-[#b12704]">
-                        {unavailableReason
-                          ? 'Unavailable'
-                          : typeof itemPrice === 'number'
-                            ? formatPrice(itemPrice, resolvePublicPriceSourceCurrency(cartItem))
-                            : 'Loading…'}
-                      </div>
+                    <div className="grid grid-cols-2 border-t border-slate-100 divide-x divide-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => handleAddToWishlist(cartItem)}
+                        disabled={isUpdating}
+                        aria-label={`Add ${cartItem.product.name} to wishlist`}
+                        className="flex min-h-11 items-center justify-center gap-2 px-2 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-[#007185] disabled:opacity-50"
+                      >
+                        <Heart className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        Add to Wishlist
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmRemoveId(cartItem.cartItemId)}
+                        disabled={isUpdating}
+                        data-no-global-confirm="true"
+                        aria-label={`Remove ${cartItem.product.name} from cart`}
+                        className="flex min-h-11 items-center justify-center gap-2 px-2 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-[#b12704] disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        Remove
+                      </button>
                     </div>
                   </div>
                 );
