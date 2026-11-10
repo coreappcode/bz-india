@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Home, Briefcase, MoreHorizontal } from 'lucide-react';
+import { Home, Briefcase, MapPin, Crosshair, Loader2, Phone } from 'lucide-react';
+import { detectLocationWithCaching } from '../lib/locationService';
 import { fetchCountries, type Country } from '../lib/shippingDataService';
 
 export interface Address {
@@ -54,6 +55,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
   const [countriesLoading, setCountriesLoading] = useState(true);
   const [countriesError, setCountriesError] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [locating, setLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -125,6 +128,28 @@ const AddressForm: React.FC<AddressFormProps> = ({
     }
   };
 
+  const handleUseCurrentLocation = async () => {
+    setLocating(true);
+    setLocationMessage(null);
+    try {
+      const { data, error } = await detectLocationWithCaching({ forceRefresh: true });
+      if (error || !data) throw new Error(error || 'Location unavailable');
+      setFormData((prev) => ({
+        ...prev,
+        city: data.city || prev.city,
+        state: data.state || prev.state,
+        postalCode: data.postalCode || prev.postalCode,
+        country: data.country || prev.country,
+      }));
+      setErrors((prev) => ({ ...prev, city: '', state: '', postalCode: '', country: '' }));
+      setLocationMessage('Location filled in. Please add your house / street details.');
+    } catch {
+      setLocationMessage('Could not get your location. Please allow location access or enter it manually.');
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
@@ -153,18 +178,34 @@ const AddressForm: React.FC<AddressFormProps> = ({
     `addr-input ${errors[field] ? 'addr-input--error' : ''}`;
 
   const typeOptions: Array<{ value: 'home' | 'work' | 'other'; label: string; icon: React.ReactNode }> = [
-    { value: 'home', label: 'Home', icon: <Home size={16} /> },
-    { value: 'work', label: 'Work', icon: <Briefcase size={16} /> },
-    { value: 'other', label: 'Other', icon: <MoreHorizontal size={16} /> },
+    { value: 'home', label: 'Home', icon: <Home size={14} /> },
+    { value: 'work', label: 'Work', icon: <Briefcase size={14} /> },
+    { value: 'other', label: 'Other', icon: <MapPin size={14} /> },
   ];
 
   const renderError = (field: string) =>
     errors[field] ? <p className="addr-error">{errors[field]}</p> : null;
 
+  const previewLines = [
+    [formData.streetAddress1, formData.streetAddress2].filter(Boolean).join(', '),
+    [formData.city, formData.state].filter(Boolean).join(', ') + (formData.postalCode ? ` - ${formData.postalCode}` : ''),
+    formData.country,
+  ].filter((line) => line && line.trim() !== '' && line.trim() !== '-');
+
   return (
-    <form onSubmit={handleSubmit} className="addr-form" noValidate>
-      <section className="addr-section">
-        <h2 className="addr-section-title">Contact details</h2>
+    <div className="addr-layout">
+      <form onSubmit={handleSubmit} className="addr-form" noValidate>
+        <button
+          type="button"
+          onClick={handleUseCurrentLocation}
+          disabled={locating}
+          className="addr-location-btn"
+        >
+          {locating ? <Loader2 size={16} className="animate-spin" /> : <Crosshair size={16} />}
+          {locating ? 'Detecting location...' : 'Use my current location'}
+        </button>
+        {locationMessage && <p className="addr-hint">{locationMessage}</p>}
+
         <div className="addr-grid">
           <div className="addr-field">
             <label className="addr-label" htmlFor="addr-fullName">Full name <span>*</span></label>
@@ -175,7 +216,6 @@ const AddressForm: React.FC<AddressFormProps> = ({
               autoComplete="name"
               value={formData.fullName || ''}
               onChange={handleChange}
-              placeholder="First and last name"
               className={inputClass('fullName')}
             />
             {renderError('fullName')}
@@ -205,47 +245,14 @@ const AddressForm: React.FC<AddressFormProps> = ({
               autoComplete="email"
               value={formData.email || ''}
               onChange={handleChange}
-              placeholder="your@email.com"
               className={inputClass('email')}
             />
             {renderError('email')}
           </div>
-        </div>
-      </section>
-
-      <section className="addr-section">
-        <h2 className="addr-section-title">Delivery address</h2>
-        <div className="addr-grid">
-          <div className="addr-field addr-field--full">
-            <label className="addr-label" htmlFor="addr-country">Country / Region <span>*</span></label>
-            <select
-              id="addr-country"
-              name="country"
-              value={formData.country || ''}
-              onChange={handleChange}
-              disabled={countriesLoading}
-              className={inputClass('country')}
-            >
-              <option value="">Select a country</option>
-              {formData.country && !countries.some((country) => country.country_name === formData.country) && (
-                <option value={formData.country}>{formData.country}</option>
-              )}
-              {countries.map((country) => (
-                <option key={country.id} value={country.country_name}>
-                  {country.country_name}
-                </option>
-              ))}
-            </select>
-            {countriesLoading && <p className="addr-hint">Loading countries...</p>}
-            {countriesError && (
-              <p className="addr-error">Unable to load countries. Please refresh and try again.</p>
-            )}
-            {renderError('country')}
-          </div>
 
           <div className="addr-field addr-field--full">
             <label className="addr-label" htmlFor="addr-streetAddress1">
-              Flat, house no., building, company, apartment <span>*</span>
+              Flat, house no., building, company <span>*</span>
             </label>
             <input
               id="addr-streetAddress1"
@@ -261,7 +268,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
 
           <div className="addr-field addr-field--full">
             <label className="addr-label" htmlFor="addr-streetAddress2">
-              Area, street, sector, village <span className="addr-optional">(optional)</span>
+              Area, street, village, landmark <span className="addr-optional">(optional)</span>
             </label>
             <input
               id="addr-streetAddress2"
@@ -283,7 +290,6 @@ const AddressForm: React.FC<AddressFormProps> = ({
               autoComplete="postal-code"
               value={formData.postalCode || ''}
               onChange={handleChange}
-              placeholder="e.g. 670702"
               className={inputClass('postalCode')}
             />
             {renderError('postalCode')}
@@ -303,8 +309,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
             {renderError('city')}
           </div>
 
-          <div className="addr-field addr-field--full">
-            <label className="addr-label" htmlFor="addr-state">State / Province / Region <span>*</span></label>
+          <div className="addr-field">
+            <label className="addr-label" htmlFor="addr-state">State / Province <span>*</span></label>
             <input
               id="addr-state"
               type="text"
@@ -316,62 +322,115 @@ const AddressForm: React.FC<AddressFormProps> = ({
             />
             {renderError('state')}
           </div>
-        </div>
-      </section>
 
-      <section className="addr-section">
-        <h2 className="addr-section-title">Address type</h2>
-        <div className="addr-type-group" role="radiogroup" aria-label="Address type">
-          {typeOptions.map((option) => {
-            const selected = formData.addressType === option.value;
-            return (
-              <label key={option.value} className={`addr-type-chip ${selected ? 'addr-type-chip--active' : ''}`}>
-                <input
-                  type="radio"
-                  name="addressType"
-                  value={option.value}
-                  checked={selected}
-                  onChange={handleChange}
-                  className="sr-only"
-                />
-                {option.icon}
-                <span>{option.label}</span>
-              </label>
-            );
-          })}
-        </div>
-      </section>
+          <div className="addr-field">
+            <label className="addr-label" htmlFor="addr-country">Country / Region <span>*</span></label>
+            <select
+              id="addr-country"
+              name="country"
+              value={formData.country || ''}
+              onChange={handleChange}
+              disabled={countriesLoading}
+              className={inputClass('country')}
+            >
+              <option value="">Select a country</option>
+              {formData.country && !countries.some((country) => country.country_name === formData.country) && (
+                <option value={formData.country}>{formData.country}</option>
+              )}
+              {countries.map((country) => (
+                <option key={country.id} value={country.country_name}>
+                  {country.country_name}
+                </option>
+              ))}
+            </select>
+            {countriesError && (
+              <p className="addr-error">Unable to load countries. Please refresh and try again.</p>
+            )}
+            {renderError('country')}
+          </div>
 
-      <section className="addr-section">
-        <h2 className="addr-section-title">Delivery instructions <span className="addr-optional">(optional)</span></h2>
-        <textarea
-          name="deliveryNotes"
-          value={formData.deliveryNotes || ''}
-          onChange={handleChange}
-          placeholder="Leave at door, call before delivery, gate code, etc."
-          rows={3}
-          className="addr-input addr-textarea"
-        />
-        <label className="addr-default-check">
+          <div className="addr-field addr-field--full">
+            <label className="addr-label" htmlFor="addr-deliveryNotes">
+              Delivery instructions <span className="addr-optional">(optional)</span>
+            </label>
+            <input
+              id="addr-deliveryNotes"
+              type="text"
+              name="deliveryNotes"
+              value={formData.deliveryNotes || ''}
+              onChange={handleChange}
+              placeholder="Leave at door, call before delivery, gate code..."
+              className="addr-input"
+            />
+          </div>
+        </div>
+
+        <div className="addr-type-row">
+          <span className="addr-label !mb-0">Address type</span>
+          <div className="addr-type-group" role="radiogroup" aria-label="Address type">
+            {typeOptions.map((option) => {
+              const selected = formData.addressType === option.value;
+              return (
+                <label key={option.value} className={`addr-type-chip ${selected ? 'addr-type-chip--active' : ''}`}>
+                  <input
+                    type="radio"
+                    name="addressType"
+                    value={option.value}
+                    checked={selected}
+                    onChange={handleChange}
+                    className="sr-only"
+                  />
+                  {option.icon}
+                  <span>{option.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <label className="addr-switch">
           <input
             type="checkbox"
             name="isDefault"
             checked={formData.isDefault || false}
             onChange={handleChange}
+            className="sr-only peer"
           />
+          <span className="addr-switch-track" aria-hidden />
           <span>Make this my default address</span>
         </label>
-      </section>
 
-      <div className="addr-actions">
-        <button type="button" onClick={onCancel} className="addr-btn addr-btn--secondary">
-          Cancel
-        </button>
-        <button type="submit" disabled={isLoading} className="addr-btn addr-btn--primary">
-          {isLoading ? 'Saving...' : initialData ? 'Update address' : 'Save address'}
-        </button>
-      </div>
-    </form>
+        <div className="addr-actions">
+          <button type="submit" disabled={isLoading} className="addr-btn addr-btn--primary">
+            {isLoading ? 'Saving...' : initialData ? 'Update address' : 'Save address'}
+          </button>
+          <button type="button" onClick={onCancel} className="addr-btn addr-btn--secondary">
+            Cancel
+          </button>
+        </div>
+      </form>
+
+      <aside className="addr-preview" aria-label="Address preview">
+        <h2 className="addr-preview-title">Address preview</h2>
+        <div className="addr-preview-card">
+          <span className="addr-type-pill capitalize">{formData.addressType || 'home'}</span>
+          <p className="text-sm font-semibold text-slate-900 mt-2">{formData.fullName || 'Your name'}</p>
+          {previewLines.length > 0 ? (
+            previewLines.map((line, index) => (
+              <p key={index} className="text-xs text-slate-600 leading-relaxed">{line}</p>
+            ))
+          ) : (
+            <p className="text-xs text-slate-400">Your address will appear here</p>
+          )}
+          {formData.phoneNumber && (
+            <p className="text-xs text-slate-600 mt-1.5 flex items-center gap-1.5">
+              <Phone size={12} /> {formData.phoneNumber}
+            </p>
+          )}
+        </div>
+        <p className="addr-tip">Tip: add a landmark for faster delivery.</p>
+      </aside>
+    </div>
   );
 };
 
