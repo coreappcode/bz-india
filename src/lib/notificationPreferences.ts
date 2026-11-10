@@ -31,7 +31,7 @@ export interface NotificationPreferences {
   orderUpdates: boolean;
   promotions: boolean;
 
-  /* Web/native push master switch + per-category granularity. */
+  /* Web push master switch + per-category granularity. */
   push_enabled: boolean;
   push_orders: boolean;
   push_returns: boolean;

@@ -42,9 +42,3 @@ customHeaders:
     headers:
       - key: Cache-Control
         value: 'public, max-age=31536000, immutable'
-  - pattern: '/.well-known/assetlinks.json'
-    headers:
-      - key: Content-Type
-        value: application/json
-      - key: Cache-Control
-        value: 'public, max-age=86400'

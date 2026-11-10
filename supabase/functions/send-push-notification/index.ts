@@ -1,22 +1,11 @@
-// send-push-notification edge function — dual-path delivery:
-//   Path 1: Firebase Cloud Messaging HTTP v1 (native Android/iOS app — FCM
-//           tokens registered via `register-push-token` in `device_push_tokens`)
-//   Path 2: OneSignal REST API (web push subscribers, legacy app versions)
+// send-push-notification edge function — OneSignal web push delivery.
 //
 // Required Supabase secrets:
-//   FIREBASE_PROJECT_ID       — Firebase project id (bzead-58220)
-//   FIREBASE_CLIENT_EMAIL     — firebase-adminsdk service account email
-//   FIREBASE_PRIVATE_KEY      — service account private key (PEM)
-//   ONESIGNAL_APP_ID          — OneSignal App ID (UUID) — web push path
-//   ONESIGNAL_REST_API_KEY    — OneSignal REST API Key (os_v2_app_...)
+//   ONESIGNAL_APP_ID       — OneSignal App ID (UUID)
+//   ONESIGNAL_REST_API_KEY — OneSignal REST API Key (os_v2_app_...)
 //
-// Targeting strategy:
-//   Native: device_push_tokens rows keyed by the authenticated Supabase user id.
-//   Web:    the client SDK (OneSignal web) tags subscriptions with
-//           external_id = profiles.id; we forward `recipientUserIds` via
-//           `include_aliases.external_id`. Native users registered on the new
-//           FCM build have no OneSignal subscription, so the two paths never
-//           double-deliver to the same device.
+// The client SDK tags subscriptions with external_id = profiles.id; we forward
+// recipientUserIds via include_aliases.external_id.
 export {};
 
 declare const Deno: {
@@ -40,10 +29,6 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5173',
   'http://localhost:4173',
   'http://127.0.0.1:4173',
-  // Capacitor / Ionic mobile WebView origins (Android uses https://localhost when androidScheme is 'https')
-  'https://localhost',
-  'capacitor://localhost',
-  'ionic://localhost',
 ];
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -51,8 +36,6 @@ const MAX_RECIPIENTS = 50;
 const MAX_TITLE_LENGTH = 120;
 const MAX_MESSAGE_LENGTH = 500;
 const ONESIGNAL_API_URL = 'https://api.onesignal.com/notifications';
-const FCM_OAUTH_URL = 'https://oauth2.googleapis.com/token';
-const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 
 interface PushRequestBody {
   orderId: string;
@@ -113,7 +96,7 @@ function buildDataPayload(
   orderId: string,
   metadata: Record<string, unknown>,
 ): Record<string, string> {
-  // Flat string-to-string map for OneSignal and FCM `data` parity.
+  // Flat string-to-string map for OneSignal `data`.
   const payload: Record<string, string> = {
     type: sanitizeText(type, 80),
     orderId,
@@ -363,181 +346,6 @@ async function sendOneSignalNotification(params: {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Firebase Cloud Messaging HTTP v1 (native app path)
-// ---------------------------------------------------------------------------
-
-interface FcmCredentials {
-  projectId: string;
-  clientEmail: string;
-  privateKeyPem: string;
-}
-
-function loadFcmCredentials(): FcmCredentials | null {
-  const projectId = sanitizeText(Deno.env.get('FIREBASE_PROJECT_ID'), 100);
-  const clientEmail = sanitizeText(Deno.env.get('FIREBASE_CLIENT_EMAIL'), 200);
-  const privateKey = String(Deno.env.get('FIREBASE_PRIVATE_KEY') || '').trim();
-  if (!projectId || !clientEmail || !privateKey) return null;
-  return { projectId, clientEmail, privateKeyPem: privateKey.replace(/\\n/g, '\n') };
-}
-
-function base64UrlEncode(input: string | ArrayBuffer): string {
-  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-/** Sign a JWT with the service account key and exchange it for an OAuth token. */
-async function getFcmAccessToken(creds: FcmCredentials): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const claims = {
-    iss: creds.clientEmail,
-    scope: FCM_SCOPE,
-    aud: FCM_OAUTH_URL,
-    iat: now,
-    exp: now + 3600,
-  };
-  const unsigned = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(claims))}`;
-
-  const pemBody = creds.privateKeyPem
-    .replace('-----BEGIN PRIVATE KEY-----', '')
-    .replace('-----END PRIVATE KEY-----', '')
-    .replace(/\s+/g, '');
-  const der = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
-  const key = await crypto.subtle.importKey(
-    'pkcs8',
-    der.buffer as ArrayBuffer,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const signature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    key,
-    new TextEncoder().encode(unsigned),
-  );
-  const assertion = `${unsigned}.${base64UrlEncode(signature)}`;
-
-  const res = await fetch(FCM_OAUTH_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${assertion}`,
-  });
-  if (!res.ok) {
-    throw new Error(`FCM token exchange failed: HTTP ${res.status}`);
-  }
-  const parsed = await res.json() as { access_token?: string };
-  if (!parsed.access_token) {
-    throw new Error('FCM token exchange returned no access_token');
-  }
-  return parsed.access_token;
-}
-
-async function loadDeviceTokens(
-  adminClient: ReturnType<typeof createClient>,
-  userIds: string[],
-): Promise<Array<{ token: string; userId: string }>> {
-  if (userIds.length === 0) return [];
-  const { data, error } = await adminClient
-    .from('device_push_tokens')
-    .select('user_id, token')
-    .in('user_id', userIds);
-  if (error) {
-    console.error('loadDeviceTokens read failed', error);
-    return [];
-  }
-  return (data || [])
-    .map((row) => ({
-      userId: String((row as { user_id?: string | null }).user_id || ''),
-      token: String((row as { token?: string | null }).token || '').trim(),
-    }))
-    .filter((row) => row.token.length >= 32);
-}
-
-async function sendFcmNotifications(params: {
-  creds: FcmCredentials;
-  accessToken: string;
-  tokens: Array<{ token: string; userId: string }>;
-  title: string;
-  message: string;
-  data: Record<string, string>;
-}): Promise<{ delivered: number; failed: number; invalidTokens: string[]; errorMessage?: string }> {
-  let delivered = 0;
-  let failed = 0;
-  let errorMessage: string | undefined;
-  const invalidTokens: string[] = [];
-
-  const results = await Promise.allSettled(
-    params.tokens.map(async ({ token }) => {
-      const res = await fetch(
-        `https://fcm.googleapis.com/v1/projects/${params.creds.projectId}/messages:send`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${params.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            message: {
-              token,
-              notification: { title: params.title, body: params.message },
-              data: params.data,
-              android: { priority: 'high' },
-            },
-          }),
-        },
-      );
-      if (res.ok) return { ok: true as const, token, invalid: false, status: res.status };
-      const errText = await res.text().catch(() => '');
-      const unregistered =
-        res.status === 404 ||
-        res.status === 410 ||
-        errText.includes('UNREGISTERED') ||
-        errText.includes('INVALID_ARGUMENT');
-      return { ok: false as const, token, invalid: unregistered, status: res.status, errText };
-    }),
-  );
-
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      const value = result.value;
-      if (value.ok) {
-        delivered++;
-      } else {
-        failed++;
-        if (value.invalid) invalidTokens.push(value.token);
-        else if (!errorMessage) {
-          errorMessage = `FCM HTTP ${value.status}: ${value.errText.slice(0, 200)}`;
-        }
-      }
-    } else {
-      failed++;
-      if (!errorMessage) {
-        errorMessage = result.reason instanceof Error ? result.reason.message : 'FCM send failed';
-      }
-    }
-  }
-
-  return { delivered, failed, invalidTokens, errorMessage };
-}
-
-/** Remove stale FCM tokens that Google reports as unregistered. */
-async function pruneInvalidTokens(
-  adminClient: ReturnType<typeof createClient>,
-  invalidTokens: string[],
-): Promise<void> {
-  if (invalidTokens.length === 0) return;
-  const { error } = await adminClient
-    .from('device_push_tokens')
-    .delete()
-    .in('token', invalidTokens);
-  if (error) {
-    console.error('pruneInvalidTokens failed', error);
-  }
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: getCorsHeaders(req) });
@@ -626,42 +434,6 @@ Deno.serve(async (req: Request) => {
       }, 200, req);
     }
 
-    // ---- Path 1: FCM HTTP v1 (native Android/iOS devices) ----
-    let fcmDelivered = 0;
-    let fcmFailed = 0;
-    let fcmSkippedReason: 'credentials_not_configured' | 'no_device_tokens' | undefined;
-    const fcmCreds = loadFcmCredentials();
-    if (fcmCreds) {
-      const deviceTokens = await loadDeviceTokens(adminClient, allowedRecipients);
-      if (deviceTokens.length > 0) {
-        try {
-          const accessToken = await getFcmAccessToken(fcmCreds);
-          const fcmResult = await sendFcmNotifications({
-            creds: fcmCreds,
-            accessToken,
-            tokens: deviceTokens,
-            title: parsedBody.title,
-            message: parsedBody.message,
-            data: dataPayload,
-          });
-          fcmDelivered = fcmResult.delivered;
-          fcmFailed = fcmResult.failed;
-          if (fcmResult.invalidTokens.length > 0) {
-            await pruneInvalidTokens(adminClient, fcmResult.invalidTokens);
-          }
-        } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'FCM send failed';
-          console.error('FCM path failed', message);
-          fcmFailed += 0;
-        }
-      } else {
-        fcmSkippedReason = 'no_device_tokens';
-      }
-    } else {
-      fcmSkippedReason = 'credentials_not_configured';
-    }
-
-    // ---- Path 2: OneSignal (web push + legacy native app versions) ----
     const sendResult = await sendOneSignalNotification({
       appId: oneSignalAppId,
       restApiKey: oneSignalRestApiKey,
@@ -671,23 +443,16 @@ Deno.serve(async (req: Request) => {
       data: dataPayload,
     });
 
-    const totalDelivered = fcmDelivered + sendResult.recipients;
-
     return json({
-      success: totalDelivered > 0,
+      success: sendResult.recipients > 0,
       requestedRecipients: parsedBody.recipientUserIds.length,
       filteredRecipients: allowedRecipients.length,
-      recipients: totalDelivered,
-      fcm: {
-        delivered: fcmDelivered,
-        failed: fcmFailed,
-        ...(fcmSkippedReason ? { skipped: fcmSkippedReason } : {}),
-      },
+      recipients: sendResult.recipients,
       oneSignal: {
         recipients: sendResult.recipients,
         ...(sendResult.errorMessage ? { error: sendResult.errorMessage } : {}),
       },
-    }, totalDelivered > 0 ? 200 : 502, req);
+    }, sendResult.recipients > 0 ? 200 : 502, req);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unexpected server error';
     return json({ error: message }, 500, req);

@@ -5,18 +5,16 @@
  * subscription from inside the app (e.g. a Settings toggle).
  *
  * Wraps the OneSignal Web SDK v16 surface so callers don't have to deal
- * with availability checks, partial API support across SDK versions, or
- * native-platform no-ops.
+ * with availability checks and partial API support across SDK versions.
  *
- * All functions are safe to call in any environment: when running inside
- * a Capacitor native shell, when OneSignal isn't configured, when the
- * browser lacks Notification API support, or when the SDK fails to load,
+ * All functions are safe to call in any environment: when OneSignal isn't
+ * configured, when the browser lacks Notification API support, or when the
+ * SDK fails to load,
  * they degrade gracefully (return a `null`/`unsupported` state and never
  * throw).
  */
 
 import logger from '../utils/logger';
-import { isNativePlatform } from '../mobile/nativePlatform';
 import { isOneSignalConfigured } from './oneSignalConfig';
 import { whenWebPushReady, type OneSignalSdk } from './oneSignalWeb';
 
@@ -39,7 +37,6 @@ const UNSUPPORTED_STATE: WebPushState = Object.freeze({
 
 /** True only on a real browser tab where web push is even possible. */
 export function isWebPushApplicable(): boolean {
-  if (isNativePlatform) return false;
   if (!isOneSignalConfigured) return false;
   if (typeof window === 'undefined') return false;
   if (typeof Notification === 'undefined') return false;
@@ -49,9 +46,9 @@ export function isWebPushApplicable(): boolean {
 
 function readPermission(sdk: OneSignalSdk | null): WebPushPermission {
   // Prefer SDK-reported permission, fall back to the standard Notification API.
-  const native = sdk?.Notifications?.permissionNative;
-  if (native === 'granted' || native === 'denied' || native === 'default') {
-    return native;
+  const permission = sdk?.Notifications?.permission;
+  if (permission === 'granted' || permission === 'denied' || permission === 'default') {
+    return permission;
   }
   if (typeof Notification !== 'undefined') {
     const p = Notification.permission;

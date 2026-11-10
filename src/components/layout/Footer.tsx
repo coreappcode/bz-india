@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Facebook, Instagram, Mail, Phone, MapPin, Loader2 } from 'lucide-react';
-import { isNativePlatform } from '../../mobile/nativePlatform';
 import { COMPANY_ADDRESS_LINES } from '../../constants/companyContact';
-import { BUYER_APP_PLAY_STORE_URL } from '../../lib/appDownload';
 
-export const Footer: React.FC = () => {
-  // The native (Capacitor) app shell has its own bottom nav and does not
-  // need the website footer. On web this branch is never taken.
-  if (isNativePlatform) return null;
-
-  return <FooterImpl />;
-};
+export const Footer: React.FC = () => <FooterImpl />;
 
 const FooterImpl: React.FC = () => {
   const navigate = useNavigate();
@@ -125,16 +117,6 @@ const FooterImpl: React.FC = () => {
                 <Link to="/contact" className="text-white hover:text-amber-400 transition-colors text-sm">
                   Contact Us
                 </Link>
-              </li>
-              <li>
-                <a
-                  href={BUYER_APP_PLAY_STORE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 mt-2 px-4 py-2 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors"
-                >
-                  Download Android App
-                </a>
               </li>
             </ul>
           </div>

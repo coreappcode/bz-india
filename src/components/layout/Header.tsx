@@ -10,8 +10,6 @@ import { detectLocationWithCaching, getLocationLabel, type ResolvedLocation } fr
 import { supabase } from '../../lib/supabase';
 import logger from '../../utils/logger';
 import { useAppNavigation } from '../../App';
-import { isNativePlatform } from '../../mobile/nativePlatform';
-import { openExternalUrl } from '../../mobile/externalLinks';
 import { IS_FIXED_COUNTRY_STOREFRONT } from '../../config/market';
 
 export interface HeaderDetectedLocation {
@@ -46,7 +44,6 @@ export const Header: React.FC<HeaderProps> = ({
   const [loadingLink, setLoadingLink] = useState<string | null>(null);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [showSellerConfirm, setShowSellerConfirm] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationText, setLocationText] = useState('Detect location for delivery options');
@@ -247,24 +244,6 @@ export const Header: React.FC<HeaderProps> = ({
     setShowLogoutDialog(true);
   };
 
-  // "Become a Seller" handler.
-  // • Web      → open the public seller portal.
-  // • Native   → confirm first; on accept, open the public seller URL in the
-  //              system browser because the buyer app build excludes seller routes.
-  const handleBecomeSellerClick = (e: React.MouseEvent) => {
-    if (!isNativePlatform) return; // web: let the anchor navigate normally
-    e.preventDefault();
-    setShowMobileMenu(false);
-    setShowSellerConfirm(true);
-  };
-
-  const handleBecomeSellerConfirm = () => {
-    setShowSellerConfirm(false);
-    // Open the seller portal in a Chrome Custom Tab on native (via
-    // @capacitor/browser) because the buyer app build excludes seller routes.
-    void openExternalUrl('https://www.bzead.com/seller');
-  };
-
   const handleSignOutConfirm = async () => {
     setIsLoggingOut(true);
     try {
@@ -368,7 +347,6 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Become a Seller Button */}
             <a
               href="https://www.bzead.com/seller"
-              onClick={handleBecomeSellerClick}
               className="text-sm font-medium text-white hover:text-amber-300 transition-all duration-300"
             >
               Become a Seller
@@ -592,10 +570,8 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => {
                 if (!isLoggedIn) {
                   navigate('/login');
-                } else if (isNativePlatform) {
-                  handleNavigation('/wishlist');
                 } else {
-                  window.location.href = '/wishlist';
+                  handleNavigation('/wishlist');
                 }
               }}
               className="mobile-header-icon-btn"
@@ -614,10 +590,8 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => {
                 if (!isLoggedIn) {
                   navigate('/login');
-                } else if (isNativePlatform) {
-                  handleNavigation('/cart');
                 } else {
-                  window.location.href = '/cart';
+                  handleNavigation('/cart');
                 }
               }}
               className="mobile-header-icon-btn"
@@ -752,13 +726,7 @@ export const Header: React.FC<HeaderProps> = ({
               <a
                 href="https://www.bzead.com/seller"
                 className="mobile-menu-link-row"
-                onClick={(e) => {
-                  if (isNativePlatform) {
-                    handleBecomeSellerClick(e);
-                  } else {
-                    setShowMobileMenu(false);
-                  }
-                }}
+                onClick={() => setShowMobileMenu(false)}
               >
                 <Store className="h-4 w-4 shrink-0 text-[#D4AF37]" />
                 <span className="flex-1">Become a Seller</span>
@@ -809,51 +777,6 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      {/* Become a Seller — confirmation (native app only) */}
-      {showSellerConfirm && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4"
-          onClick={() => setShowSellerConfirm(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-[calc(100vw-2rem)] sm:max-w-sm w-full p-5 sm:p-6 animate-in fade-in zoom-in duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold text-gray-900">Open Seller Portal?</h2>
-              <button
-                onClick={() => setShowSellerConfirm(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label="Close"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <p className="text-gray-600 text-sm mb-2">
-              The seller dashboard isn't part of the BZEAD buyer app. We'll open it
-              in your phone's browser at <span className="font-semibold">bzead.com/seller</span>.
-            </p>
-            <p className="text-gray-500 text-xs mb-5">
-              You can return to this app any time.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowSellerConfirm(false)}
-                className="px-5 py-2.5 text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 font-semibold text-sm transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleBecomeSellerConfirm}
-                data-no-global-confirm="true"
-                className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold text-sm transition-all"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

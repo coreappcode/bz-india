@@ -9,15 +9,13 @@
  * read-merge-write pattern so we never clobber keys owned by other
  * sections (e.g. email preferences).
  *
- * Hidden on Capacitor native shells (native uses the OS-level subscription
- * managed by `nativePushNotifications.ts`).
+ * Lets users manage their browser push subscription.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bell, BellOff, Check, Loader2, ShieldAlert } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import logger from '../../utils/logger';
-import { isNativePlatform } from '../../mobile/nativePlatform';
 import { isOneSignalConfigured } from '../../lib/oneSignalConfig';
 import { useWebPushSubscription } from '../../hooks/useWebPushSubscription';
 import {
@@ -174,7 +172,6 @@ export const PushNotificationSettings: React.FC<PushNotificationSettingsProps> =
     return <span className="text-xs text-gray-500">Not subscribed</span>;
   }, [push.supported, push.permission, push.optedIn]);
 
-  if (isNativePlatform) return null;
 
   return (
     <div className="space-y-4">

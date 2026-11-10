@@ -4,9 +4,6 @@ import { Mail, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateEmail } from '../../utils/validation';
 import { AuthCardHeader } from '../../components/auth/AuthCardHeader';
-import { Header } from '../../components/layout/Header';
-import { MobileNav } from '../../components/layout/MobileNav';
-import { isNativePlatform } from '../../mobile/nativePlatform';
 import { BuyerAuthLayout } from '../../components/auth/BuyerAuthLayout';
 
 const ForgotPassword: React.FC = () => {
@@ -62,8 +59,6 @@ const ForgotPassword: React.FC = () => {
 
   return (
     <>
-      {isNativePlatform && <Header />}
-      <MobileNav />
       <BuyerAuthLayout pageTitle="Reset password">
       <div className="auth-card">
         <Link

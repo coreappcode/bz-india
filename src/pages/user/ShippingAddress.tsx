@@ -6,7 +6,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Skeleton, ListSkeleton } from '../../components/common/Skeleton';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
-import { MobileNav } from '../../components/layout/MobileNav';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { createUserAddress, getUserAddresses } from '../../lib/adminService';
 import type { UserAddress } from '../../types';
@@ -1028,7 +1027,6 @@ const ShippingAddressPage: React.FC = () => {
         </div>{/* END GRID */}
       </div>
     </div>
-    <MobileNav />
     <Footer />
     </>
   );

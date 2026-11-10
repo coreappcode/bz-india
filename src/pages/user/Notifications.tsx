@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '../../utils/logger';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
-import { MobileNav } from '../../components/layout/MobileNav';
 import { ListSkeleton } from '../../components/common/Skeleton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -189,7 +188,6 @@ export const NotificationsPage: React.FC = () => {
           <ListSkeleton rows={6} />
         </main>
         <Footer />
-        <MobileNav />
       </div>
     );
   }
@@ -230,7 +228,6 @@ export const NotificationsPage: React.FC = () => {
       </main>
 
       <Footer />
-      <MobileNav />
     </div>
   );
 };

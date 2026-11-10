@@ -3,9 +3,6 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Mail, Lock, AlertCircle, CheckCircle, X, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { validateEmail } from '../../utils/validation';
-import { isNativePlatform } from '../../mobile/nativePlatform';
-import { Header } from '../layout/Header';
-import { MobileNav } from '../layout/MobileNav';
 import { AuthCardHeader } from './AuthCardHeader';
 import { BuyerAuthLayout } from './BuyerAuthLayout';
 interface LoginProps {
@@ -93,7 +90,6 @@ export const Login: React.FC<LoginProps> = ({ role = 'user' }) => {
 
   return (
     <>
-      {isNativePlatform && <Header />}
       <BuyerAuthLayout pageTitle="Log in">
       {/* ── Wrong-role popup modal ── */}
       {wrongRolePopup && (
@@ -239,7 +235,6 @@ export const Login: React.FC<LoginProps> = ({ role = 'user' }) => {
         </form>
       </div>
     </BuyerAuthLayout>
-      {isNativePlatform && <MobileNav />}
     </>
   );
 };

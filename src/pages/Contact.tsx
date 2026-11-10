@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Header } from '../components/layout/Header';
-import { MobileNav } from '../components/layout/MobileNav';
 import { Footer } from '../components/layout/Footer';
 import { Mail, Send, User, MessageSquare } from 'lucide-react';
-import { openExternalUrl } from '../mobile/externalLinks';
+import { openExternalUrl } from '../lib/externalLinks';
 import { COMPANY_ADDRESS } from '../constants/companyContact';
 const WHATSAPP_NUMBER = '447555394997';
 
@@ -33,7 +32,6 @@ export const Contact: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
-      <MobileNav />
 
       <main className="flex-grow">
         {/* Breadcrumb */}

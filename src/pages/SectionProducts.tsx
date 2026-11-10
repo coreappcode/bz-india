@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { StorefrontHeader } from '../components/layout/StorefrontHeader';
 import { Footer } from '../components/layout/Footer';
-import { MobileNav } from '../components/layout/MobileNav';
 import { ProductCard } from '../components/products/ProductCard';
 import { Menu, X, Star, DollarSign, Package, ArrowLeft } from 'lucide-react';
 import { fetchProductsBySection, fetchCategoriesFlat, searchPublicProductsByKeywords, sectionMeta, type ProductSection } from '../lib/productService';
@@ -332,7 +331,6 @@ export const SectionProducts: React.FC = () => {
           </div>
         </main>
         <Footer />
-        <MobileNav />
       </div>
     );
   }
@@ -620,7 +618,6 @@ export const SectionProducts: React.FC = () => {
       </main>
 
       <Footer />
-      <MobileNav />
     </div>
   );
 };

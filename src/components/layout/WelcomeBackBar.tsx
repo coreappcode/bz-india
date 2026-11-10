@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { isNativePlatform } from '../../mobile/nativePlatform';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -15,8 +14,6 @@ interface WelcomeBackBarProps {
 }
 
 export function WelcomeBackBar({ isLoggedIn, displayName }: WelcomeBackBarProps) {
-  if (isNativePlatform) return null;
-
   const name = (displayName || 'User').trim();
   const initials = getInitials(name);
 

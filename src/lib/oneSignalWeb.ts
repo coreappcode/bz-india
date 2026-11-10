@@ -1,10 +1,7 @@
 // OneSignal Web Push initialization (browsers).
 // Uses `react-onesignal` which wraps the OneSignal Web SDK v16.
 //
-// Only initialized on real browsers — Capacitor native builds use the
-// Cordova plugin via `nativePushNotifications.ts`.
 import logger from '../utils/logger';
-import { isNativePlatform } from '../mobile/nativePlatform';
 import { ONESIGNAL_APP_ID, isOneSignalConfigured } from './oneSignalConfig';
 
 /**
@@ -20,7 +17,6 @@ export interface OneSignalSdk {
   };
   Notifications?: {
     permission: boolean | 'default' | 'granted' | 'denied';
-    permissionNative?: NotificationPermission;
     requestPermission?: () => Promise<NotificationPermission>;
     addEventListener?: (event: string, cb: (...args: unknown[]) => void) => void;
     removeEventListener?: (event: string, cb: (...args: unknown[]) => void) => void;
@@ -56,12 +52,12 @@ async function loadSdk(): Promise<OneSignalSdk | null> {
 /**
  * Idempotent: initializes OneSignal at most once per page load and returns
  * the same promise on subsequent calls. Resolves to `null` when running in
- * an environment where web push is not applicable (native shell, missing
- * config, SSR, SDK load failure) so callers can no-op safely.
+ * an environment where web push is not applicable (missing config, SSR,
+ * SDK load failure) so callers can no-op safely.
  */
 export function initializeOneSignalWeb(): Promise<OneSignalSdk | null> {
   if (readyPromise) return readyPromise;
-  if (isNativePlatform || !isOneSignalConfigured || typeof window === 'undefined') {
+  if (!isOneSignalConfigured || typeof window === 'undefined') {
     readyPromise = Promise.resolve(null);
     return readyPromise;
   }

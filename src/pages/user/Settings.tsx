@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import logger from '../../utils/logger';
 import { Header } from '../../components/layout/Header';
-import { MobileNav } from '../../components/layout/MobileNav';
 import { Footer } from '../../components/layout/Footer';
 import { Skeleton, FormSkeleton } from '../../components/common/Skeleton';
 import { useAuth } from '../../contexts/AuthContext';
@@ -250,7 +249,6 @@ export const UserSettings: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
-      <MobileNav />
 
       <main className="flex-grow max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {/* Page Header */}
@@ -532,7 +530,7 @@ export const UserSettings: React.FC = () => {
                     )}
                   </button>
 
-                  {/* Browser push notifications (hidden on native shells) */}
+                  {/* Browser push notifications */}
                   {(user?.id || currentAuthUser?.userId) && (
                     <div className="mt-8 pt-6 border-t border-gray-200">
                       <PushNotificationSettings

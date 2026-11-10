@@ -7,7 +7,6 @@
 
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { supabase } from './supabase';
-import { isNativePlatform } from '../mobile/nativePlatform';
 
 // Singleton Stripe instance
 let stripePromise: Promise<Stripe | null> | null = null;
@@ -77,20 +76,12 @@ const extractFunctionErrorMessage = async (error: any): Promise<string> => {
 export async function createPaymentIntent(
   params: CreatePaymentIntentParams
 ): Promise<PaymentIntentResult> {
-  // Tag the request so the edge function can disable redirect-based payment methods
-  // when called from inside the Capacitor WebView (where Stripe's off-site redirect
-  // would land on https://localhost and never return to the app).
-  const requestBody = {
-    ...params,
-    client: isNativePlatform ? 'native' : 'web',
-  };
-
   if (import.meta.env.DEV) {
     // Development: use Vite dev middleware
     const res = await fetch('/api/create-payment-intent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(params),
     });
 
     if (!res.ok) {
@@ -118,7 +109,7 @@ export async function createPaymentIntent(
       };
 
       const { data, error } = await supabase.functions.invoke('create-payment-intent', {
-        body: requestBody,
+        body: params,
         headers,
       });
 
@@ -139,7 +130,7 @@ export async function createPaymentIntent(
     };
 
     const { data, error } = await supabase.functions.invoke('create-payment-intent', {
-      body: requestBody,
+      body: params,
       headers,
     });
 

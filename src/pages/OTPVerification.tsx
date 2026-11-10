@@ -7,9 +7,6 @@ import { buildAppRedirect } from '../utils/authEnv';
 import { AuthToast } from '../components/common/AuthToast';
 import { AuthBrandMark } from '../components/auth/AuthBrandMark';
 import { AuthCardHeader } from '../components/auth/AuthCardHeader';
-import { Header } from '../components/layout/Header';
-import { MobileNav } from '../components/layout/MobileNav';
-import { isNativePlatform } from '../mobile/nativePlatform';
 
 const OTPVerification: React.FC = () => {
   const location = useLocation();
@@ -49,11 +46,6 @@ const OTPVerification: React.FC = () => {
   const email = locationState.email || storedOtpContext?.email || fallbackEmail;
   const role = locationState.role || storedOtpContext?.role || (purpose?.includes('seller') ? 'seller' : 'user');
   const shellClass = location.pathname.includes('/seller') ? 'seller-auth-shell' : 'auth-page-shell';
-  // On native (Capacitor) for the seller flow, hide the in-card "Back" /
-  // "Back to Home" chrome — MobileNav + slim Header already give the user
-  // navigation. Web stays byte-identical.
-  const isSellerPathForChrome = isNativePlatform && location.pathname.includes('/seller');
-
   useEffect(() => {
     if (locationState.notice) {
       setToast({ type: 'success', message: locationState.notice });
@@ -291,8 +283,6 @@ const OTPVerification: React.FC = () => {
 
   return (
     <>
-      {isNativePlatform && <Header />}
-      <MobileNav />
       <div className={shellClass}>
       {toast && <AuthToast type={toast.type} message={toast.message} />}
       {showSuccess ? (
@@ -314,12 +304,10 @@ const OTPVerification: React.FC = () => {
         </div>
       ) : (
         <div className="auth-card">
-          {!isSellerPathForChrome && (
-            <button onClick={() => navigate(-1)} className="auth-top-link" type="button">
-              <ChevronLeft size={16} />
-              Back
-            </button>
-          )}
+          <button onClick={() => navigate(-1)} className="auth-top-link" type="button">
+            <ChevronLeft size={16} />
+            Back
+          </button>
 
           <AuthCardHeader
             title="Verify your email"
@@ -407,13 +395,11 @@ const OTPVerification: React.FC = () => {
           </form>
 
           {/* Footer Links */}
-          {!isSellerPathForChrome && (
-            <div className="text-center mt-6 pt-6 border-t border-gray-200">
-              <Link to="/" className="text-xs text-gray-500 hover:text-black transition">
-                Back to Home
-              </Link>
-            </div>
-          )}
+          <div className="text-center mt-6 pt-6 border-t border-gray-200">
+            <Link to="/" className="text-xs text-gray-500 hover:text-black transition">
+              Back to Home
+            </Link>
+          </div>
         </div>
       )}
     </div>

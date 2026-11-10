@@ -1,12 +1,7 @@
 import { Link } from 'react-router-dom';
-import { Header } from '../components/layout/Header';
-import { MobileNav } from '../components/layout/MobileNav';
-import { isNativePlatform } from '../mobile/nativePlatform';
 
 const NotFound = () => (
   <>
-    {isNativePlatform && <Header />}
-    <MobileNav />
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
     <div className="text-center max-w-md">
       <h1 className="text-8xl font-bold text-amber-500 mb-4">404</h1>

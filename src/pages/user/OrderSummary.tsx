@@ -5,7 +5,6 @@ import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { Header } from '../../components/layout/Header';
-import { MobileNav } from '../../components/layout/MobileNav';
 import {
   calculateDestinationCheckoutPricing,
   type DestinationCheckoutPricing,
@@ -975,7 +974,6 @@ const OrderSummaryPage: React.FC = () => {
         </div>
       </div>
       </div>
-      <MobileNav />
     <Footer />
     </>
   );

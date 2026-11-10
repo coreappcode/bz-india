@@ -3,7 +3,6 @@ import logger from '../../utils/logger';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
-import { MobileNav } from '../../components/layout/MobileNav';
 import { Skeleton, ListSkeleton } from '../../components/common/Skeleton';
 import {
   Package, Truck, RotateCcw, Download, Loader2,
@@ -23,7 +22,7 @@ import { fetchMultiSellerTat } from '../../lib/tatService';
 import { buildInvoiceNumber, formatFrontend12DigitId } from '../../utils/idFormatter';
 import { generateInvoicePdf } from '../../utils/invoicePdf';
 import { resolveCustomerUnitPrice } from '../../lib/orderPricingViews';
-import { openExternalLinkHandler } from '../../mobile/externalLinks';
+import { openExternalLinkHandler } from '../../lib/externalLinks';
 
 /* ───────── types ───────── */
 interface OrderItem {
@@ -1371,7 +1370,6 @@ export const OrderDetails: React.FC = () => {
       )}
 
       <Footer />
-      <MobileNav />
     </div>
   );
 };

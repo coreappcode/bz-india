@@ -174,9 +174,6 @@ verify_jwt = false
 [functions.product-og-image]
 verify_jwt = false
 
-[functions.register-push-token]
-verify_jwt = false
-
 [functions.send-push-notification]
 verify_jwt = false
 

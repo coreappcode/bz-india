@@ -1,6 +1,4 @@
 import { jsPDF } from 'jspdf';
-import { saveAndShareFile } from '../mobile/externalLinks';
-import { isNativePlatform } from '../mobile/nativePlatform';
 import { COMPANY_ADDRESS_LINES } from '../constants/companyContact';
 
 export interface InvoiceLineItem {
@@ -304,14 +302,7 @@ export async function generateInvoicePdf(
 ): Promise<void> {
   const doc = await buildInvoiceDoc(data, formatPrice);
   const fileName = `${data.invoiceNumber}.pdf`;
-  if (isNativePlatform) {
-    // On Capacitor (Android/iOS) the WebView ignores <a download>, so route
-    // through Filesystem + Share. On web, use the normal blob-download path.
-    const blob = doc.output('blob');
-    await saveAndShareFile(fileName, blob, 'application/pdf');
-  } else {
-    doc.save(fileName);
-  }
+  doc.save(fileName);
 }
 
 /**

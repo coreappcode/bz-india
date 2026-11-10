@@ -5,9 +5,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { validatePassword } from '../utils/validation';
 import { AuthBrandMark } from '../components/auth/AuthBrandMark';
 import { AuthCardHeader } from '../components/auth/AuthCardHeader';
-import { Header } from '../components/layout/Header';
-import { MobileNav } from '../components/layout/MobileNav';
-import { isNativePlatform } from '../mobile/nativePlatform';
 
 const NewPassword: React.FC = () => {
   const location = useLocation();
@@ -116,8 +113,6 @@ const NewPassword: React.FC = () => {
   if (success) {
     return (
       <>
-        {isNativePlatform && <Header />}
-        <MobileNav />
         <div className={shellClass}>
         <div className="auth-card text-center">
           <AuthBrandMark />
@@ -141,8 +136,6 @@ const NewPassword: React.FC = () => {
 
   return (
     <>
-      {isNativePlatform && <Header />}
-      <MobileNav />
       <div className={shellClass}>
       <div className="auth-card">
         <button onClick={() => navigate(-1)} className="auth-top-link" type="button">

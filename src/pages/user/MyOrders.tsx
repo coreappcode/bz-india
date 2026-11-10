@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import logger from '../../utils/logger';
-import { isNativePlatform } from '../../mobile/nativePlatform';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
-import { MobileNav } from '../../components/layout/MobileNav';
 import { ListSkeleton } from '../../components/common/Skeleton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -705,23 +703,20 @@ export const MyOrders: React.FC = () => {
       )}
 
       <main className="flex-grow w-full">
-        {/* Header Bar — hidden on native (uses global Header + Android back button) */}
-        {!isNativePlatform && (
-          <header
-            className="bg-[#0f172a] text-white sticky z-[70]"
-            style={{ top: 'var(--bz-header-offset)' }}
-          >
-            <div className="max-w-4xl mx-auto px-4 h-10 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <button onClick={() => navigate(-1)} className="text-white/70 hover:text-white">
-                  <ArrowLeft size={20} />
-                </button>
-                <h1 className="text-base font-bold tracking-tight">My Orders</h1>
-              </div>
-              <span className="text-xs text-white/60">{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
+        <header
+          className="bg-[#0f172a] text-white sticky z-[70]"
+          style={{ top: 'var(--bz-header-offset)' }}
+        >
+          <div className="max-w-4xl mx-auto px-4 h-10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button onClick={() => navigate(-1)} className="text-white/70 hover:text-white">
+                <ArrowLeft size={20} />
+              </button>
+              <h1 className="text-base font-bold tracking-tight">My Orders</h1>
             </div>
-          </header>
-        )}
+            <span className="text-xs text-white/60">{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
+          </div>
+        </header>
 
         {/* Search */}
         <div className="max-w-4xl mx-auto px-4 pt-4">
@@ -1245,7 +1240,6 @@ export const MyOrders: React.FC = () => {
       )}
 
       <Footer />
-      <MobileNav />
     </div>
   );
 };

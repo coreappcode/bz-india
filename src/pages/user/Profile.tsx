@@ -7,7 +7,6 @@ import { supabase } from '../../lib/supabase';
 import { getUserAddresses } from '../../lib/adminService';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
-import { MobileNav } from '../../components/layout/MobileNav';
 import { Skeleton, FormSkeleton, ListSkeleton } from '../../components/common/Skeleton';
 
 interface CountryOption {
@@ -485,7 +484,6 @@ export const Profile: React.FC = () => {
           </div>
         </main>
         <Footer />
-        <MobileNav />
       </div>
     );
   }
@@ -928,7 +926,6 @@ export const Profile: React.FC = () => {
       </div>
       </main>
       <Footer />
-      <MobileNav />
     </div>
   );
 };

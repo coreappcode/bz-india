@@ -16,7 +16,6 @@ import {
   type CheckoutPricingResult,
 } from '../../lib/pricingService';
 import { useDestinationCountry } from '../../hooks/useDestinationCountry';
-import { isNativePlatform } from '../../mobile/nativePlatform';
 
 export const CartPage: React.FC = () => {
   const { user, currentAuthUser } = useAuth();
@@ -309,13 +308,11 @@ export const CartPage: React.FC = () => {
   return (
     <div
       className="h-[100dvh] overflow-hidden bg-white flex flex-col md:min-h-screen md:h-auto md:overflow-visible"
-      style={isNativePlatform ? { height: '100dvh', overflow: 'hidden' } : undefined}
     >
       <Header />
 
       <main
         className="flex flex-1 min-h-0 w-full max-w-[1100px] mx-auto flex-col bg-white px-0 py-0 pb-0 md:block md:bg-transparent md:px-4 md:py-5 md:pb-5"
-        style={isNativePlatform ? { flex: 1, minHeight: 0, overflowY: 'auto', display: 'block' } : undefined}
       >
 
         {/* ─── Loading ─── */}
@@ -343,7 +340,6 @@ export const CartPage: React.FC = () => {
                 ═══════════════════════════════════════════════ */}
             <div
               className="flex flex-1 min-h-0 flex-col bg-white border-0 rounded-none p-0 md:block md:border md:border-[#ddd] md:rounded-[10px] md:p-6 md:mb-4"
-              style={isNativePlatform ? { display: 'block' } : undefined}
             >
               <h1 className="hidden text-[18px] sm:text-[22px] font-bold text-[#0f1111] mb-0.5 md:block">Shopping Cart</h1>
               <p className="hidden text-[12px] text-[#888] mb-3 md:block">{cartItems.length} item{cartItems.length !== 1 ? 's' : ''} in your cart</p>
@@ -369,8 +365,7 @@ export const CartPage: React.FC = () => {
 
               {/* ─── Cart Items ─── */}
               <div
-                className="native-cart-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white px-2 md:block md:overflow-visible md:px-0"
-                style={isNativePlatform ? { display: 'block', overflow: 'visible' } : undefined}
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white px-2 md:block md:overflow-visible md:px-0"
               >
                 {cartItems.map((cartItem) => {
                 const itemPrice = hasVariantSelection(cartItem)
@@ -384,7 +379,7 @@ export const CartPage: React.FC = () => {
                 return (
                   <div
                     key={cartItem.cartItemId}
-                    className={`native-cart-item flex gap-2.5 border border-[#ddd] px-3 py-2.5 last:mb-0 md:border-x-0 md:border-t-0 md:px-0 sm:gap-4 sm:py-4 ${isUpdating ? 'opacity-50 pointer-events-none' : ''}`}
+                    className={`flex gap-2.5 border border-[#ddd] px-3 py-2.5 last:mb-0 md:border-x-0 md:border-t-0 md:px-0 sm:gap-4 sm:py-4 ${isUpdating ? 'opacity-50 pointer-events-none' : ''}`}
                   >
                     {/* Checkbox */}
                     <div className="pt-1 shrink-0">
@@ -397,7 +392,7 @@ export const CartPage: React.FC = () => {
                     </div>
 
                     {/* Image */}
-                    <div className={`native-cart-image shrink-0 rounded-lg border border-[#eee] bg-[#f9f9f9] overflow-hidden ${isNativePlatform ? 'w-[62px] h-[62px]' : 'w-[78px] h-[78px] sm:w-[90px] sm:h-[90px] md:w-[100px] md:h-[100px]'}`}>
+                    <div className="shrink-0 rounded-lg border border-[#eee] bg-[#f9f9f9] overflow-hidden w-[78px] h-[78px] sm:w-[90px] sm:h-[90px] md:w-[100px] md:h-[100px]">
                       <img
                         src={cartItem.product.image_url}
                         alt={cartItem.product.name}
@@ -439,7 +434,7 @@ export const CartPage: React.FC = () => {
                       </div>
 
                       {/* Quantity Controls + Actions */}
-                      <div className="native-cart-qty-row flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <div className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
                           <button
                             onClick={() => handleUpdateQuantity(cartItem.cartItemId, cartItem.quantity - 1)}
@@ -462,7 +457,7 @@ export const CartPage: React.FC = () => {
 
                         {isUpdating && <Loader2 className="w-4 h-4 text-[#ff9900] animate-spin" />}
 
-                        <div className="native-cart-actions flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleMoveToWishlist(cartItem)}
                             disabled={isUpdating}
@@ -501,19 +496,10 @@ export const CartPage: React.FC = () => {
             </div>
 
             {/* ═══════════════════════════════════════════════
-                 CART SUMMARY (sticky above MobileNav on native)
+                 CART SUMMARY
                 ═══════════════════════════════════════════════ */}
             <div
-              className="native-cart-checkout shrink-0 px-2 pt-2 md:px-0 md:pt-0"
-              style={isNativePlatform ? {
-                position: 'sticky',
-                bottom: 0,
-                zIndex: 10,
-                background: '#fff',
-                borderTop: '1px solid #e5e7eb',
-                boxShadow: '0 -2px 10px rgba(0,0,0,0.07)',
-                padding: '8px 16px 10px',
-              } : undefined}
+              className="shrink-0 px-2 pt-2 md:px-0 md:pt-0"
             >
               {pricingLoading ? (
                 <div className="bg-white border border-[#ddd] rounded-[10px] p-6 sm:p-8 text-center">

@@ -381,8 +381,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // Push notifications: tag the OneSignal subscription with the current user id
-    // (or clear it on sign-out). Replaces the old FCM device-token registration.
+    // Keep the OneSignal subscription associated with the current user id.
     void syncOneSignalExternalId(currentAuthUser?.userId || null);
   }, [currentAuthUser?.userId]);
 

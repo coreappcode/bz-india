@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
-import { MobileNav } from '../components/layout/MobileNav';
 import { Footer } from '../components/layout/Footer';
 import { Skeleton, SkeletonText } from '../components/common/Skeleton';
-import { openExternalLinkHandler } from '../mobile/externalLinks';
 import { COMPANY_ADDRESS } from '../constants/companyContact';
 
 const LoadingStage: React.FC = () => {
@@ -79,7 +77,6 @@ export const About: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
-      <MobileNav />
 
       <main className="flex-grow">
         <div className="bg-gray-50 border-b border-gray-200">
@@ -112,8 +109,8 @@ export const About: React.FC = () => {
                   Parent Website:{' '}
                   <a
                     href="https://www.bzead.com"
-                    onClick={openExternalLinkHandler('https://www.bzead.com')}
-                    rel="noreferrer"
+                      rel="noreferrer"
+                      target="_blank"
                     className="text-amber-700 hover:underline"
                   >
                     https://www.bzead.com

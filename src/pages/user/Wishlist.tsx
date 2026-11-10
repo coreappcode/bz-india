@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
-import { MobileNav } from '../../components/layout/MobileNav';
 import { ProductGridSkeleton } from '../../components/common/Skeleton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWishlist } from '../../contexts/WishlistContext';
@@ -287,7 +286,6 @@ export const WishlistPage: React.FC = () => {
       )}
 
       <Footer />
-      <MobileNav />
     </div>
   );
 };

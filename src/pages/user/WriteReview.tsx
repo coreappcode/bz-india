@@ -11,7 +11,6 @@ import { createReview } from '../../lib/adminService';
 import { supabase } from '../../lib/supabase';
 import { useDestinationCountry } from '../../hooks/useDestinationCountry';
 import { Header } from '../../components/layout/Header';
-import { MobileNav } from '../../components/layout/MobileNav';
 
 interface Product {
   id: string;
@@ -529,7 +528,6 @@ export const WriteReview: React.FC = () => {
           </div>
         </div>
       </div>
-      <MobileNav />
     </div>
   );
 };

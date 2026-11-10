@@ -1,6 +1,4 @@
 import { supabase } from './supabase';
-import { Geolocation, type PermissionStatus as GeolocationPermissionStatus } from '@capacitor/geolocation';
-import { isNativePlatform } from '../mobile/nativePlatform';
 
 export interface ResolvedLocation {
   place: string;
@@ -68,7 +66,7 @@ function saveGuestLocationToStorage(location: ResolvedLocation) {
   localStorage.setItem(GUEST_LOCATION_STORAGE_KEY, JSON.stringify(location));
   localStorage.setItem(GUEST_COUNTRY_STORAGE_KEY, location.country || '');
   // Notify same-tab listeners (useDestinationCountry, CurrencyContext) immediately.
-  // cross-tab updates are handled by the browser's native 'storage' event.
+  // cross-tab updates are handled by the browser 'storage' event.
   try {
     window.dispatchEvent(new CustomEvent('beauzead:location-updated', { detail: location }));
   } catch { /* ignore in SSR/test environments */ }
@@ -130,60 +128,7 @@ async function saveUserLocationCache(userId: string, location: ResolvedLocation)
   );
 }
 
-function hasNativeLocationPermission(status: GeolocationPermissionStatus): boolean {
-  return status.location === 'granted' || status.coarseLocation === 'granted';
-}
-
-function normalizeNativeLocationError(error: unknown): Error {
-  const rawMessage = error instanceof Error ? error.message : String(error || '');
-  const message = rawMessage.toLowerCase();
-
-  if (message.includes('denied') || message.includes('permission')) {
-    return new Error('Location permission denied. Enable location permission in app settings and try again.');
-  }
-
-  if (
-    message.includes('location services')
-    || message.includes('not enabled')
-    || message.includes('turned off')
-    || message.includes('disabled')
-    || message.includes('gps')
-  ) {
-    return new Error('Phone location is turned off. Turn on Location/GPS and try again.');
-  }
-
-  return new Error('Unable to fetch precise location. Please check phone location settings and retry.');
-}
-
 function getCurrentPosition(): Promise<{ latitude: number; longitude: number }> {
-  if (isNativePlatform) {
-    return (async () => {
-      try {
-        const current = await Geolocation.checkPermissions();
-
-        if (!hasNativeLocationPermission(current)) {
-          const requested = await Geolocation.requestPermissions();
-          if (!hasNativeLocationPermission(requested)) {
-            throw new Error('Location permission denied.');
-          }
-        }
-
-        const position = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 12000,
-          maximumAge: 300000,
-        });
-
-        return {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
-      } catch (error) {
-        throw normalizeNativeLocationError(error);
-      }
-    })();
-  }
-
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       reject(new Error('Location is not supported in this browser.'));

@@ -21,10 +21,6 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5173',
   'http://localhost:4173',
   'http://127.0.0.1:4173',
-  // Capacitor / Ionic mobile WebView origins (Android uses https://localhost when androidScheme is 'https')
-  'https://localhost',
-  'capacitor://localhost',
-  'ionic://localhost',
 ];
 
 const SR_API_BASE = 'https://apiv2.shiprocket.in';

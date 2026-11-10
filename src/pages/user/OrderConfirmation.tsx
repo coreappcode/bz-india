@@ -9,7 +9,6 @@ import { formatCurrency as fmtCurrency } from '../../utils/currency';
 import { formatFrontend12DigitId } from '../../utils/idFormatter';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
-import { MobileNav } from '../../components/layout/MobileNav';
 
 interface OrderData {
   id: string;
@@ -269,7 +268,6 @@ const OrderConfirmationPage: React.FC = () => {
           </div>
         </div>
         <Footer />
-        <MobileNav />
       </div>
     );
   }
@@ -359,7 +357,6 @@ const OrderConfirmationPage: React.FC = () => {
           </div>
         </div>
         <Footer />
-        <MobileNav />
       </div>
     );
   }
@@ -407,7 +404,6 @@ const OrderConfirmationPage: React.FC = () => {
           </div>
         </div>
         <Footer />
-        <MobileNav />
       </div>
     );
   }
@@ -640,7 +636,6 @@ const OrderConfirmationPage: React.FC = () => {
       </div>
       </div>
       <Footer />
-      <MobileNav />
     </div>
   );
 };

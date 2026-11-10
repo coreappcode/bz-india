@@ -13,7 +13,6 @@ import { useVariantPresetsVersion } from '../lib/variantSizePresetsService';
 import { DetailSkeleton } from '../components/common/Skeleton';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
-import { MobileNav } from '../components/layout/MobileNav';
 import { DeliveryEstimate } from '../components/products/DeliveryEstimate';
 import { ProductImageLightbox } from '../components/products/ProductImageLightbox';
 import { fetchProductById, fetchProductReviews, fetchSimilarProducts, resolveProductImageUrl, fetchConditionDetails, fetchReturnPolicy } from '../lib/productService';
@@ -403,7 +402,6 @@ const ProductDetailsPage: React.FC = () => {
         <div className="hidden md:block">
           <Footer />
         </div>
-        <MobileNav />
       </div>
     );
   }
@@ -428,7 +426,6 @@ const ProductDetailsPage: React.FC = () => {
         <div className="hidden md:block">
           <Footer />
         </div>
-        <MobileNav />
       </div>
     );
   }
@@ -1754,7 +1751,6 @@ const ProductDetailsPage: React.FC = () => {
       <div className="hidden md:block">
         <Footer />
       </div>
-      <MobileNav />
     </div>
   );
 };

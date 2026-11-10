@@ -81,7 +81,7 @@ purchase. Its current user-facing areas include:
 - Checkout shipping, order review, and payment steps, with market-aware
   pricing, delivery eligibility, and currency handling.
 - Legal, policy, About, and Contact pages.
-- Responsive web UI and Capacitor-oriented mobile runtime helpers.
+- Responsive web UI.
 
 This is a **buyer app**, not the seller or administrator application. Seller
 and administrator roles are not given seller/admin dashboards in this
@@ -97,8 +97,6 @@ storefront. Seller links redirect to the seller portal on BZEAD.COM.
 - Tailwind CSS for utility styling.
 - Lucide React and React Icons for iconography.
 - Vitest, jsdom, and Testing Library for tests.
-- Capacitor 8 packages and `src/mobile/` runtime integrations for supported
-  native-webview behaviors.
 
 ### Backend and external services
 
@@ -117,7 +115,7 @@ storefront. Seller links redirect to the seller portal on BZEAD.COM.
 ### High-level request flow
 
 ```text
-Buyer browser / supported Capacitor webview
+Buyer browser
         |
         +-- React storefront (AWS Amplify static hosting)
         |
@@ -229,7 +227,6 @@ There is no separate route-folder hierarchy.
 | `/checkout/shipping`, `/checkout/review`, `/checkout/payment`, `/checkout/confirmation` | Checkout journey | Signed-in buyer |
 | `/profile`, `/settings`, `/notifications`, `/user/addresses` | Buyer account management | Signed-in buyer |
 | `/privacy-policy`, `/terms-of-service`, `/shipping-policy`, `/refund-policy`, `/terms-and-conditions`, `/about`, `/contact` | Informational and legal pages | Public |
-| `/seller`, `/seller/*` | External seller-portal redirect | Redirects to BZEAD.COM |
 
 The route guard permits public catalog and content routes, allows buyer routes
 for buyer accounts, and redirects signed-out users from protected buyer routes
@@ -249,13 +246,12 @@ to login. Admin and seller accounts are redirected away from buyer-only pages.
 | `src/lib/` | Supabase services for products, prices, checkout, orders, shipping, and notifications |
 | `src/utils/` | Currency, logging, formatting, validation, invoice, and environment helpers |
 | `src/config/` | Market, base URL, and product-variant display configuration |
-| `src/mobile/` | Capacitor detection, external links, native bootstrap, push, and native lifecycle behavior |
 | `src/types/` | Shared TypeScript models |
 | `src/__tests__/` | Unit and focused regression tests |
 | `scripts/` | Build-time share-page and bulk-template utilities |
 | `supabase/migrations/` | Versioned database schema, policies, indexes, and RPC changes |
 | `supabase/functions/` | Supabase Edge Function source |
-| `public/` | Static public assets and web-app association/worker assets |
+| `public/` | Static public assets and service-worker assets |
 
 ## 8. Supabase capabilities used by this application
 
@@ -272,8 +268,7 @@ Function directories:
   synchronization.
 - `send-email`, `send-contact-email`, `pickup-otp` — email/contact and pickup
   verification flows.
-- `send-push-notification`, `register-push-token`, and `test-push` — push
-  notification operations.
+- `send-push-notification` and `test-push` — push notification operations.
 - `reverse-geocode` — location lookup support.
 - `product-og` and `product-og-image` — product sharing metadata/image support.
 

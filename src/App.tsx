@@ -9,13 +9,6 @@ import { useWishlistSync } from './hooks/useWishlistSync';
 import { GlobalActionConfirmation } from './components/common/GlobalActionConfirmation';
 import ErrorBoundary from './components/ErrorBoundary';
 import { OfflineScreen, useOnlineStatus } from './components/OfflineScreen';
-import {
-  NativePullToRefreshIndicator,
-  useNativeBackButton,
-  useNativePagePersist,
-  useNativePullToRefresh,
-} from './mobile/nativeRuntime';
-import { openExternalUrl } from './mobile/externalLinks';
 import { BzeadHomePage } from './pages/BzeadHomePage';
 import { FloatingCartShortcut } from './components/layout/FloatingCartShortcut';
 
@@ -143,49 +136,6 @@ const ShareRedirect: React.FC = () => {
   return <Navigate to={`/products/${slug}`} replace />;
 };
 
-/**
- * Buyer-app seller redirect — intercepts /seller/* routes in the buyer-only
- * Android app and opens the full web app in the system browser (Chrome
- * Custom Tab) instead of rendering seller pages inline.
- */
-const ExternalSellerRedirect: React.FC = () => {
-  const navigate = useNavigate();
-  useEffect(() => {
-    void openExternalUrl('https://www.bzead.com/seller');
-    navigate('/', { replace: true });
-  }, [navigate]);
-  return null;
-};
-
-const NativeRuntimeGuard: React.FC<{ children: (refreshEpoch: number) => React.ReactNode }> = ({ children }) => {
-  const location = useLocation();
-  const [refreshEpoch, setRefreshEpoch] = useState(0);
-
-  useNativeBackButton(location.pathname);
-  useNativePagePersist(location.pathname);
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshEpoch((prev) => prev + 1);
-  }, []);
-
-  const {
-    enabled: pullEnabled,
-    pullDistance,
-    isRefreshing,
-  } = useNativePullToRefresh({ onRefresh: handleRefresh });
-
-  return (
-    <>
-      <NativePullToRefreshIndicator
-        enabled={pullEnabled}
-        pullDistance={pullDistance}
-        isRefreshing={isRefreshing}
-      />
-      {children(refreshEpoch)}
-    </>
-  );
-};
-
 /** Root deep-link entrypoint used by share redirects (/?product=<slug>) */
 const RootEntry: React.FC = () => {
   const location = useLocation();
@@ -242,7 +192,6 @@ const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
     const userAuthPages = ['/login', '/signup'];
     const isUserAuthPage = userAuthPages.includes(path);
-    const isSellerPortalRedirect = path === '/seller' || path.startsWith('/seller/');
     const userProtectedPrefixes = [
       '/orders', '/profile', '/wishlist', '/cart', '/checkout',
       '/settings', '/notifications', '/user',
@@ -252,7 +201,6 @@ const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
 
     if (authRole === 'admin' || authRole === 'seller') {
-      if (isSellerPortalRedirect) return;
       if (path !== '/') {
         navigate('/', { replace: true });
       }
@@ -260,7 +208,6 @@ const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
 
     if (authRole === 'user') {
-      if (isSellerPortalRedirect) return;
       // Already logged in — redirect away from user login/signup
       if (isUserAuthPage) {
         navigate('/', { replace: true });
@@ -270,7 +217,7 @@ const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       return;
     }
 
-    if (isPublicPage || isUserAuthPage || isSellerPortalRedirect) return;
+    if (isPublicPage || isUserAuthPage) return;
 
     if (isUserProtectedPage) {
       navigate('/login', { replace: true, state: { from: path } });
@@ -324,64 +271,56 @@ function App() {
                   <NavigationProgress />
                   <GlobalActionConfirmation />
                   <FloatingCartShortcut />
-                  <NativeRuntimeGuard>
-                    {(refreshEpoch) => (
-                      <RouteGuard key={refreshEpoch}>
-                        <ErrorBoundary>
-                          <Suspense fallback={<PageLoader />}>
-                            <Routes>
-                  <Route path="/" element={<RootEntry />} />
-                  <Route path="/all-categories" element={<Navigate to="/" replace />} />
-                  <Route path="/products/featured" element={<LegacySectionRedirect to="/products/section/featured" />} />
-                  <Route path="/products/hot-deals" element={<LegacySectionRedirect to="/products/section/hot-deals" />} />
-                  <Route path="/products/section/:section" element={<SectionProducts />} />
-                  <Route path="/products/:productId" element={<ProductDetailsPage />} />
-                  {/* Share link fallback — redirect to product page (OG handled by edge function) */}
-                  <Route path="/share/:slug" element={<ShareRedirect />} />
-                  <Route path="/category/:categoryId" element={<CategoryProducts />} />
-                  
-                  {/* Legal Pages */}
-                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                  <Route path="/terms-of-service" element={<TermsService />} />
-                  <Route path="/shipping-policy" element={<ShippingPolicy />} />
-                  <Route path="/refund-policy" element={<RefundPolicy />} />
-                  <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/contact" element={<Contact />} />
-                  
-                  {/* User Routes */}
-                  <Route path="/login" element={<Login role="user" />} />
-                  <Route path="/signup" element={<Signup role="user" />} />
-                  <Route path="/otp-verification" element={<OTPVerification />} />
-                  <Route path="/new-password" element={<NewPassword />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route path="/orders" element={<MyOrders />} />
-                  <Route path="/orders/:orderId" element={<OrderDetails />} />
-                  <Route path="/notifications" element={<NotificationsPage />} />
-                  <Route path="/wishlist" element={<WishlistPage />} />
-                  <Route path="/cart" element={<CartPage />} />
-                  <Route path="/settings" element={<UserSettings />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/products/:productId/review" element={<WriteReview />} />
-                  <Route path="/user/addresses" element={<UserAddressManagement />} />
-                  
-                  {/* Checkout Flow Routes */}
-                  <Route path="/checkout/shipping" element={<ShippingAddressPage />} />
-                  <Route path="/checkout/review" element={<OrderSummaryPage />} />
-                  <Route path="/checkout/payment" element={<Checkout />} />
-                  <Route path="/checkout/confirmation" element={<OrderConfirmationPage />} />
-                  
-                  <Route path="/seller" element={<ExternalSellerRedirect />} />
-                  <Route path="/seller/*" element={<ExternalSellerRedirect />} />
-                  
-                  {/* 404 */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-                          </Suspense>
-                        </ErrorBoundary>
-                      </RouteGuard>
-                    )}
-                  </NativeRuntimeGuard>
+                  <RouteGuard>
+                    <ErrorBoundary>
+                      <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                          <Route path="/" element={<RootEntry />} />
+                          <Route path="/all-categories" element={<Navigate to="/" replace />} />
+                          <Route path="/products/featured" element={<LegacySectionRedirect to="/products/section/featured" />} />
+                          <Route path="/products/hot-deals" element={<LegacySectionRedirect to="/products/section/hot-deals" />} />
+                          <Route path="/products/section/:section" element={<SectionProducts />} />
+                          <Route path="/products/:productId" element={<ProductDetailsPage />} />
+                          {/* Share link fallback — redirect to product page (OG handled by edge function) */}
+                          <Route path="/share/:slug" element={<ShareRedirect />} />
+                          <Route path="/category/:categoryId" element={<CategoryProducts />} />
+
+                          {/* Legal Pages */}
+                          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                          <Route path="/terms-of-service" element={<TermsService />} />
+                          <Route path="/shipping-policy" element={<ShippingPolicy />} />
+                          <Route path="/refund-policy" element={<RefundPolicy />} />
+                          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+                          <Route path="/about" element={<About />} />
+                          <Route path="/contact" element={<Contact />} />
+
+                          {/* User Routes */}
+                          <Route path="/login" element={<Login role="user" />} />
+                          <Route path="/signup" element={<Signup role="user" />} />
+                          <Route path="/otp-verification" element={<OTPVerification />} />
+                          <Route path="/new-password" element={<NewPassword />} />
+                          <Route path="/forgot-password" element={<ForgotPassword />} />
+                          <Route path="/orders" element={<MyOrders />} />
+                          <Route path="/orders/:orderId" element={<OrderDetails />} />
+                          <Route path="/notifications" element={<NotificationsPage />} />
+                          <Route path="/wishlist" element={<WishlistPage />} />
+                          <Route path="/cart" element={<CartPage />} />
+                          <Route path="/settings" element={<UserSettings />} />
+                          <Route path="/profile" element={<Profile />} />
+                          <Route path="/products/:productId/review" element={<WriteReview />} />
+                          <Route path="/user/addresses" element={<UserAddressManagement />} />
+
+                          {/* Checkout Flow Routes */}
+                          <Route path="/checkout/shipping" element={<ShippingAddressPage />} />
+                          <Route path="/checkout/review" element={<OrderSummaryPage />} />
+                          <Route path="/checkout/payment" element={<Checkout />} />
+                          <Route path="/checkout/confirmation" element={<OrderConfirmationPage />} />
+
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </Suspense>
+                    </ErrorBoundary>
+                  </RouteGuard>
                 </NavigationProvider>
               </Router>
             </WishlistProvider>

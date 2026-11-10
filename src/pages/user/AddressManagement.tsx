@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
-import { MobileNav } from '../../components/layout/MobileNav';
 import { ListSkeleton } from '../../components/common/Skeleton';
 import AddressForm from '../../components/AddressForm';
 import type { Address } from '../../components/AddressForm';
@@ -372,7 +371,7 @@ const UserAddressManagement: React.FC = () => {
         )}
       </div>
 
-      {/* Custom delete confirmation — replaces window.confirm to avoid the ugly 'https://localhost' browser dialog on Android */}
+      {/* Custom confirmation dialog keeps the delete flow consistent across browsers. */}
       {confirmDeleteId && (
         <div className="fixed inset-0 z-[10001] bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
@@ -399,7 +398,6 @@ const UserAddressManagement: React.FC = () => {
       )}
 
       <Footer />
-      <MobileNav />
     </div>
   );
 };

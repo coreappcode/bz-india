@@ -22,11 +22,9 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { useCart } from '../../contexts/CartContext';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
-import { MobileNav } from '../../components/layout/MobileNav';
 import { notifyOrderEvent } from '../../lib/notificationService';
 import { generateInvoicePdfBase64, type InvoicePdfData } from '../../utils/invoicePdf';
 import { buildInvoiceNumber } from '../../utils/idFormatter';
-import { isNativePlatform } from '../../mobile/nativePlatform';
 import { buildAppRedirect } from '../../utils/authEnv';
 import {
   shouldUseRazorpay,
@@ -864,13 +862,7 @@ const CheckoutForm: React.FC<
                 address: billingAddressForStripe,
               },
             },
-            // On native the WebView origin is `https://localhost` (internal Capacitor bundle).
-            // Using `https://localhost` as return_url means any 3DS/UPI redirect lands back
-            // inside the same WebView and React Router handles it — the app never leaves the bundle.
-            // On web, use the public domain.
-            return_url: isNativePlatform
-              ? 'https://localhost/checkout/confirmation'
-              : buildAppRedirect('/checkout/confirmation'),
+            return_url: buildAppRedirect('/checkout/confirmation'),
           },
           redirect: 'if_required',
         });
@@ -2337,7 +2329,6 @@ const Checkout: React.FC = () => {
         <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center pb-24 md:pb-8">
           <p className="text-gray-600">Redirecting to cart...</p>
         </div>
-        <MobileNav />
       </>
     );
   }
@@ -2355,7 +2346,6 @@ const Checkout: React.FC = () => {
             <p className="text-gray-600">{loadingMessage}</p>
           </div>
         </div>
-        <MobileNav />
       </>
     );
   }
@@ -2397,7 +2387,6 @@ const Checkout: React.FC = () => {
             </div>
           </div>
         </div>
-        <MobileNav />
       </>
     );
     }
@@ -2413,7 +2402,6 @@ const Checkout: React.FC = () => {
             <p className="text-gray-600">Preparing payment...</p>
           </div>
         </div>
-        <MobileNav />
       </>
     );
   }
@@ -2543,7 +2531,6 @@ const Checkout: React.FC = () => {
       )}
 
       <Footer />
-      <MobileNav />
     </div>
   );
 };

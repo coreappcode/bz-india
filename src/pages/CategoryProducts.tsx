@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { StorefrontHeader } from '../components/layout/StorefrontHeader';
 import { Footer } from '../components/layout/Footer';
-import { MobileNav } from '../components/layout/MobileNav';
 import { ProductCard } from '../components/products/ProductCard';
 import {
   ChevronRight, SlidersHorizontal, X, Star,
@@ -286,7 +285,6 @@ export const CategoryProducts: React.FC = () => {
           <ProductGridSkeleton count={8} />
         </main>
         <Footer />
-        <MobileNav />
       </div>
     );
   }
@@ -325,7 +323,6 @@ export const CategoryProducts: React.FC = () => {
           </div>
         </main>
         <Footer />
-        <MobileNav />
       </div>
     );
   }
@@ -882,7 +879,6 @@ export const CategoryProducts: React.FC = () => {
       )}
 
       <Footer />
-      <MobileNav />
     </div>
   );
 };

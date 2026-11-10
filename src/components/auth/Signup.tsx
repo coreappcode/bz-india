@@ -5,9 +5,6 @@ import { supabase } from '../../lib/supabase';
 import { Mail, Lock, User, AlertCircle, Eye, EyeOff, Globe, ChevronDown, ArrowLeft } from 'lucide-react';
 import { validateEmail, validatePassword, validateFullName } from '../../utils/validation';
 import { AuthToast } from '../common/AuthToast';
-import { isNativePlatform } from '../../mobile/nativePlatform';
-import { Header } from '../layout/Header';
-import { MobileNav } from '../layout/MobileNav';
 import { AuthCardHeader } from './AuthCardHeader';
 import { BuyerAuthLayout } from './BuyerAuthLayout';
 import { IS_INDIA_STOREFRONT, isIndiaCountry } from '../../config/market';
@@ -188,7 +185,6 @@ export const Signup: React.FC<SignupProps> = ({ role = 'user' }) => {
 
   return (
     <>
-      {isNativePlatform && <Header />}
       <BuyerAuthLayout pageTitle="Create account">
       {toast && <AuthToast type={toast.type} message={toast.message} />}
       <div className="auth-card auth-card--buyer">
@@ -344,7 +340,6 @@ export const Signup: React.FC<SignupProps> = ({ role = 'user' }) => {
           </form>
       </div>
     </BuyerAuthLayout>
-      {isNativePlatform && <MobileNav />}
     </>
   );
 };
