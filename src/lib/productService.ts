@@ -183,7 +183,7 @@ export async function fetchProducts(filters?: {
     }
   }
 
-  query = query.order('created_at', { ascending: false });
+  query = query.order('created_at', { ascending: false }).order('id', { ascending: false });
 
   const limit = filters?.limit || 100;
   const offset = filters?.offset || 0;

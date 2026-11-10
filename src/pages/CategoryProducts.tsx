@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { StorefrontHeader } from '../components/layout/StorefrontHeader';
 import { Footer } from '../components/layout/Footer';
@@ -30,6 +30,8 @@ interface FilterOptions {
   sortBy: 'featured' | 'price-low-high' | 'price-high-low' | 'rating' | 'newest';
 }
 
+const PRODUCT_PAGE_SIZE = 20;
+
 export const CategoryProducts: React.FC = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
@@ -43,6 +45,14 @@ export const CategoryProducts: React.FC = () => {
   const [parentById, setParentById] = useState<Record<string, string | null>>({});
   const [products, setProducts] = useState<any[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [loadMoreElement, setLoadMoreElement] = useState<HTMLDivElement | null>(null);
+  const categoryContextRef = useRef<Awaited<ReturnType<typeof fetchCategoryContext>> | null>(null);
+  const nextOffsetRef = useRef(0);
+  const requestIdRef = useRef(0);
+  const loadingMoreRef = useRef(false);
   const [publicPriceMap, setPublicPriceMap] = useState<Record<string, number>>({});
   const [publicMrpMap, setPublicMrpMap] = useState<Record<string, number>>({});
   const [publicPriceLoading, setPublicPriceLoading] = useState(false);
@@ -62,9 +72,39 @@ export const CategoryProducts: React.FC = () => {
     userCountry: user?.country || '',
   });
 
-  // Load category context + products
+  const fetchProductPage = useCallback(async (
+    ctx: Awaited<ReturnType<typeof fetchCategoryContext>>,
+    offset: number,
+  ) => {
+    const { data, error, count } = await fetchProducts({
+      categoryIds: ctx.allCategoryIds,
+      approvalStatus: 'approved',
+      isActive: true,
+      limit: PRODUCT_PAGE_SIZE,
+      offset,
+    });
+    if (error) throw new Error(error);
+    return {
+      products: data.map((p: any) => ({
+        ...p,
+        category_name: ctx.categoryNames?.[p.category] || '',
+        sub_category_name: ctx.categoryNames?.[p.sub_category] || '',
+        product_type_name: ctx.categoryNames?.[p.product_type] || '',
+      })),
+      hasMore: offset + data.length < count && data.length > 0,
+    };
+  }, []);
+
   useEffect(() => {
     if (!categoryId) return;
+    const requestId = ++requestIdRef.current;
+    categoryContextRef.current = null;
+    nextOffsetRef.current = 0;
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
+    setHasMore(false);
+    setLoadMoreError(null);
+    setProducts([]);
     const load = async () => {
       setLoading(true);
       setFetchError(null);
@@ -72,6 +112,7 @@ export const CategoryProducts: React.FC = () => {
 
       try {
         const ctx = await fetchCategoryContext(categoryId);
+        if (requestId !== requestIdRef.current) return;
 
         if (ctx.category) {
           setCategory(ctx.category);
@@ -79,27 +120,19 @@ export const CategoryProducts: React.FC = () => {
           setSubcategories(ctx.children);
           setParentById(ctx.parentById || {});
 
-          const { data: prods } = await fetchProducts({
-            categoryIds: ctx.allCategoryIds,
-            approvalStatus: 'approved',
-            isActive: true,
-            limit: 500,
-          });
-
-          // Enrich products with resolved category names
-          const enriched = (prods || []).map((p: any) => ({
-            ...p,
-            category_name: ctx.categoryNames?.[p.category] || '',
-            sub_category_name: ctx.categoryNames?.[p.sub_category] || '',
-            product_type_name: ctx.categoryNames?.[p.product_type] || '',
-          }));
-          setProducts(enriched);
+          const page = await fetchProductPage(ctx, 0);
+          if (requestId !== requestIdRef.current) return;
+          categoryContextRef.current = ctx;
+          nextOffsetRef.current = page.products.length;
+          setProducts(page.products);
+          setHasMore(page.hasMore);
         } else {
           setCategory(null);
           setParentById({});
           setProducts([]);
         }
       } catch (err) {
+        if (requestId !== requestIdRef.current) return;
         console.error('Error loading category:', err);
         setFetchError('Failed to load products. Please try again.');
         setCategory(null);
@@ -109,10 +142,50 @@ export const CategoryProducts: React.FC = () => {
 
       setLoading(false);
     };
-    load();
-  }, [categoryId]);
+    void load();
+    return () => { requestIdRef.current += 1; };
+  }, [categoryId, fetchProductPage]);
+
+  const loadMore = useCallback(async () => {
+    const ctx = categoryContextRef.current;
+    if (!ctx || !hasMore || loadingMoreRef.current) return;
+    const requestId = requestIdRef.current;
+    const offset = nextOffsetRef.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const page = await fetchProductPage(ctx, offset);
+      if (requestId !== requestIdRef.current) return;
+      nextOffsetRef.current = offset + page.products.length;
+      setProducts(prev => {
+        const existingIds = new Set(prev.map(product => product.id));
+        return [...prev, ...page.products.filter(product => !existingIds.has(product.id))];
+      });
+      setHasMore(page.hasMore);
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      console.error('Error loading more products:', err);
+      setLoadMoreError('Could not load more products. Please try again.');
+    } finally {
+      if (requestId === requestIdRef.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
+    }
+  }, [fetchProductPage, hasMore]);
 
   useEffect(() => {
+    if (!loadMoreElement || !hasMore || loadingMore || loadMoreError || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(entry => entry.isIntersecting)) void loadMore();
+    }, { rootMargin: '200px' });
+    observer.observe(loadMoreElement);
+    return () => observer.disconnect();
+  }, [loadMoreElement, hasMore, loadingMore, loadMoreError, loadMore]);
+
+  useEffect(() => {
+    let cancelled = false;
     const loadPublicPrices = async () => {
       if (!selectedCountry) {
         setPublicPriceMap({});
@@ -133,6 +206,7 @@ export const CategoryProducts: React.FC = () => {
         products.map((p) => p.id),
         selectedCountry
       );
+      if (cancelled) return;
 
       const map: Record<string, number> = {};
       const mrpMap: Record<string, number> = {};
@@ -147,6 +221,7 @@ export const CategoryProducts: React.FC = () => {
     };
 
     void loadPublicPrices();
+    return () => { cancelled = true; };
   }, [products, selectedCountry]);
 
   // Compute dynamic price ceiling from loaded products
@@ -157,9 +232,15 @@ export const CategoryProducts: React.FC = () => {
     return Math.ceil(maxPrice / 500) * 500 || 100000;
   }, [products]);
 
-  // Reset price range when products change (new category loaded)
+  const previousPriceMax = useRef(dynamicPriceMax);
   useEffect(() => {
-    setFilters(prev => ({ ...prev, priceRange: [0, dynamicPriceMax] }));
+    const previousMax = previousPriceMax.current;
+    previousPriceMax.current = dynamicPriceMax;
+    setFilters(prev => {
+      const [min, max] = prev.priceRange;
+      const nextMax = max >= previousMax ? dynamicPriceMax : Math.min(max, dynamicPriceMax);
+      return { ...prev, priceRange: [Math.min(min, nextMax), nextMax] };
+    });
   }, [dynamicPriceMax]);
 
   // Filter + sort products
@@ -384,8 +465,13 @@ export const CategoryProducts: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <h1 className="text-xl md:text-2xl font-bold text-gray-900">{category.name}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {filteredProducts.length} result{filteredProducts.length !== 1 ? 's' : ''}
+            {filteredProducts.length} loaded result{filteredProducts.length !== 1 ? 's' : ''}
           </p>
+          {hasMore && (
+            <p className="text-xs text-gray-500 mt-1">
+              Filters, sorting, counts and brands apply to loaded products only. Scroll for more.
+            </p>
+          )}
         </div>
       </div>
 
@@ -641,7 +727,9 @@ export const CategoryProducts: React.FC = () => {
               <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
                 <h2 className="text-lg font-semibold text-gray-900 mb-2">No products found</h2>
                 <p className="text-sm text-gray-500 mb-4">
-                  Try adjusting your filters or browse a different category.
+                  {hasMore
+                    ? 'No loaded products match. Load more products or adjust your filters.'
+                    : 'Try adjusting your filters or browse a different category.'}
                 </p>
                 {activeFilterCount > 0 && (
                   <button
@@ -736,6 +824,24 @@ export const CategoryProducts: React.FC = () => {
                   </div>
                 )}
               </>
+            )}
+            {hasMore && (
+              <div ref={setLoadMoreElement} className="py-6 text-center" aria-live="polite">
+                {loadingMore ? (
+                  <p className="text-sm text-gray-500" role="status">Loading more products...</p>
+                ) : (
+                  <>
+                    {loadMoreError && <p className="text-sm text-red-600 mb-2" role="alert">{loadMoreError}</p>}
+                    <button
+                      type="button"
+                      onClick={() => void loadMore()}
+                      className="text-sm font-semibold text-amber-600 hover:text-amber-700"
+                    >
+                      {loadMoreError ? 'Try again' : 'Load more products'}
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
