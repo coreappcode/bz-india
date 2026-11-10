@@ -316,60 +316,121 @@
     @apply text-slate-800 font-medium;
   }
 
-  .profile-layout {
-    @apply grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start mt-2;
+  .acct-layout {
+    @apply grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-5 lg:gap-6 items-start mt-2;
   }
 
-  .profile-layout-main {
-    @apply lg:col-span-7 min-w-0;
+  .acct-sidebar {
+    @apply bg-white rounded-2xl border border-slate-200/90 shadow-sm p-2 lg:sticky lg:top-24;
   }
 
-  .profile-layout-aside {
-    @apply lg:col-span-5 min-w-0;
+  .acct-menu {
+    @apply flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible;
   }
 
-  .profile-card-header {
-    @apply flex items-center gap-2 px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/60;
+  .acct-menu-item {
+    @apply relative flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap text-left lg:w-full;
   }
 
-  .profile-card-title {
-    @apply text-base font-bold text-slate-900;
+  .acct-menu-item--active {
+    @apply bg-[#6D28D9]/10 text-[#6D28D9] font-semibold hover:bg-[#6D28D9]/10;
   }
 
-  .profile-field-row {
-    @apply flex items-start gap-3 sm:gap-4;
+  .acct-menu-item--active::before {
+    content: '';
+    @apply absolute left-0 top-1.5 bottom-1.5 w-1 rounded-full bg-[#6D28D9] hidden lg:block;
   }
 
-  .profile-field-icon {
-    @apply shrink-0 w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center;
+  .acct-menu-item--logout {
+    @apply text-red-600 hover:bg-red-50;
   }
 
-  .profile-field-body {
-    @apply flex-1;
+  .acct-menu-divider {
+    @apply my-2 border-t border-slate-100 hidden lg:block;
   }
 
-  .profile-address-panel {
-    @apply bg-white rounded-2xl border border-slate-200/90 shadow-lg shadow-slate-200/50 p-5 sm:p-6 lg:sticky lg:top-24;
+  .acct-panel {
+    @apply bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-8 min-w-0;
   }
 
-  .profile-address-panel-header {
-    @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-4 border-b border-slate-100;
+  .acct-panel-head {
+    @apply flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6;
   }
 
-  .profile-address-title {
-    @apply text-lg font-bold text-slate-900;
+  .acct-panel-title {
+    @apply text-2xl font-bold text-slate-900 tracking-tight;
+  }
+
+  .acct-panel-subtitle {
+    @apply text-sm text-slate-500 mt-1;
+  }
+
+  .acct-field-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6;
+  }
+
+  .acct-field-head {
+    @apply flex items-center justify-between mb-1.5 min-h-[20px];
+  }
+
+  .acct-label {
+    @apply text-sm font-semibold text-slate-700;
+  }
+
+  .acct-edit-link {
+    @apply inline-flex items-center gap-1 text-xs font-semibold text-[#6D28D9] hover:text-[#5b21b6] transition;
+  }
+
+  .acct-input {
+    @apply w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/20 focus:border-[#6D28D9] transition-colors;
+  }
+
+  .acct-input--static {
+    @apply flex items-center gap-2 bg-white min-h-[46px];
+  }
+
+  .acct-input--locked {
+    @apply bg-slate-50 text-slate-600;
+  }
+
+  .acct-hint {
+    @apply text-xs text-slate-400 mt-1.5;
+  }
+
+  .acct-btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#6D28D9] text-white text-sm font-semibold hover:bg-[#5b21b6] transition disabled:opacity-50;
+  }
+
+  .acct-btn-secondary {
+    @apply inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 transition;
+  }
+
+  .acct-btn-secondary--outline {
+    @apply border border-slate-200 bg-white hover:bg-slate-50 shrink-0;
+  }
+
+  .acct-row {
+    @apply flex items-center justify-between gap-4 pb-6 border-b border-slate-100;
+  }
+
+  .acct-address-list {
+    @apply divide-y divide-slate-100 border border-slate-200 rounded-xl;
+  }
+
+  .acct-address-row {
+    @apply flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 hover:bg-slate-50/60 transition-colors;
+  }
+
+  .acct-address-actions {
+    @apply flex items-center gap-4 shrink-0;
+  }
+
+  .acct-type-pill {
+    @apply text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 text-slate-600;
   }
 
   .profile-address-add-link {
-    @apply inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#6D28D9] text-white text-sm font-semibold hover:bg-[#5b21b6] transition shadow-sm shrink-0;
-  }
-
-  .profile-address-list {
-    @apply space-y-4;
-  }
-
-  .profile-address-card {
-    @apply rounded-xl border border-slate-200 bg-white p-4;
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#6D28D9] text-white text-sm font-semibold hover:bg-[#5b21b6] transition shadow-sm shrink-0;
   }
 
   .profile-address-icon-box {
@@ -378,10 +439,6 @@
 
   .profile-address-default-badge {
     @apply shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-[#6D28D9]/10 text-[#6D28D9];
-  }
-
-  .profile-address-card-actions {
-    @apply flex items-center gap-4 mt-3 pt-3 border-t border-slate-100;
   }
 
   .profile-address-link-btn {

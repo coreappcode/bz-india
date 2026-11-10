@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import logger from '../../utils/logger';
-import { useNavigate } from 'react-router-dom';
-import { LogOut, CheckCircle, X, Trash2, Home, Briefcase, MapPin, Plus, Shield, User, Mail, Phone, Globe, Lock, Key, Download, Edit2, SlidersHorizontal, ChevronRight } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { LogOut, CheckCircle, X, Trash2, Home, Briefcase, MapPin, Plus, Shield, User, Lock, Key, Download, Edit2, SlidersHorizontal, ChevronRight, Package, Heart, Bell, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getUserAddresses } from '../../lib/adminService';
@@ -18,6 +18,9 @@ interface CountryOption {
 }
 
 type EditingField = 'name' | 'phone' | 'country' | null;
+type ProfileSection = 'personal' | 'security' | 'addresses';
+
+const PROFILE_SECTIONS: ProfileSection[] = ['personal', 'security', 'addresses'];
 
 interface ProfileAddress {
   id: string;
@@ -35,6 +38,16 @@ interface ProfileAddress {
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get('section') as ProfileSection | null;
+  const activeSection: ProfileSection =
+    sectionParam && PROFILE_SECTIONS.includes(sectionParam) ? sectionParam : 'personal';
+  const selectSection = (section: ProfileSection) => {
+    setEditingField(null);
+    setEditValue('');
+    setError(null);
+    setSearchParams(section === 'personal' ? {} : { section }, { replace: true });
+  };
   const { user, currentAuthUser, loading: authLoading, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -462,9 +475,260 @@ export const Profile: React.FC = () => {
     return { line1, line2, country: address.country };
   };
 
-  const renderFieldIcon = (icon: React.ReactNode) => (
-    <div className="profile-field-icon" aria-hidden>{icon}</div>
+  const sectionMeta: Record<ProfileSection, { title: string; subtitle: string }> = {
+    personal: { title: 'Personal Information', subtitle: 'Manage your personal details.' },
+    security: { title: 'Login & Security', subtitle: 'Manage your password and account actions.' },
+    addresses: { title: 'My Addresses', subtitle: 'Manage your saved delivery addresses.' },
+  };
+
+  const menuItems: Array<{
+    key: string;
+    label: string;
+    icon: React.ReactNode;
+    section?: ProfileSection;
+    path?: string;
+  }> = [
+    { key: 'personal', label: 'Personal Information', icon: <User className="w-[18px] h-[18px]" />, section: 'personal' },
+    { key: 'security', label: 'Login & Security', icon: <Shield className="w-[18px] h-[18px]" />, section: 'security' },
+    { key: 'addresses', label: 'My Addresses', icon: <Home className="w-[18px] h-[18px]" />, section: 'addresses' },
+    { key: 'orders', label: 'My Orders', icon: <Package className="w-[18px] h-[18px]" />, path: '/orders' },
+    { key: 'wishlist', label: 'Wishlist', icon: <Heart className="w-[18px] h-[18px]" />, path: '/wishlist' },
+    { key: 'notifications', label: 'Notifications', icon: <Bell className="w-[18px] h-[18px]" />, path: '/notifications' },
+    { key: 'help', label: 'Help & Support', icon: <HelpCircle className="w-[18px] h-[18px]" />, path: '/contact' },
+  ];
+
+  const renderEditActions = (field: 'name' | 'phone' | 'country') => (
+    <>
+      {error && editingField === field && <p className="text-red-600 text-xs mt-2">{error}</p>}
+      <div className="flex gap-3 mt-3">
+        <button onClick={() => handleSaveField(field)} disabled={saving} type="button" className="acct-btn-primary">
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+        <button onClick={cancelEditing} type="button" className="acct-btn-secondary">
+          Cancel
+        </button>
+      </div>
+    </>
   );
+
+  const renderPersonalSection = () => (
+    <div className="acct-field-grid">
+      <div className="acct-field">
+        <div className="acct-field-head">
+          <label className="acct-label">Name</label>
+          {editingField !== 'name' && (
+            <button type="button" onClick={() => startEditing('name')} className="acct-edit-link">
+              <Edit2 className="w-3.5 h-3.5" /> Edit
+            </button>
+          )}
+        </div>
+        {editingField === 'name' ? (
+          <>
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="acct-input"
+              autoFocus
+            />
+            {renderEditActions('name')}
+          </>
+        ) : (
+          <div className="acct-input acct-input--static">{profileData.name || '—'}</div>
+        )}
+      </div>
+
+      <div className="acct-field">
+        <div className="acct-field-head">
+          <label className="acct-label">Phone</label>
+          {editingField !== 'phone' && (
+            <button type="button" onClick={() => startEditing('phone')} className="acct-edit-link">
+              <Edit2 className="w-3.5 h-3.5" /> Edit
+            </button>
+          )}
+        </div>
+        {editingField === 'phone' ? (
+          <>
+            <input
+              type="tel"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="acct-input"
+              autoFocus
+            />
+            {renderEditActions('phone')}
+          </>
+        ) : (
+          <div className="acct-input acct-input--static">{profileData.phone || '—'}</div>
+        )}
+      </div>
+
+      <div className="acct-field">
+        <div className="acct-field-head">
+          <label className="acct-label">Email</label>
+        </div>
+        <div className="acct-input acct-input--static acct-input--locked">
+          <Lock className="w-4 h-4 shrink-0 text-slate-400" aria-hidden />
+          <span className="truncate">{profileData.email || '—'}</span>
+        </div>
+        <p className="acct-hint">Email address cannot be changed</p>
+      </div>
+
+      <div className="acct-field">
+        <div className="acct-field-head">
+          <label className="acct-label">Country</label>
+          {editingField !== 'country' && !locationLockedCountryId && (
+            <button type="button" onClick={() => startEditing('country')} className="acct-edit-link">
+              <Edit2 className="w-3.5 h-3.5" /> Edit
+            </button>
+          )}
+        </div>
+        {editingField === 'country' ? (
+          <>
+            <select
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="acct-input bg-white"
+              autoFocus
+            >
+              <option value="">Select a country</option>
+              {countries.map((c) => (
+                <option key={c.id} value={c.id}>{c.country_name}</option>
+              ))}
+            </select>
+            {renderEditActions('country')}
+          </>
+        ) : (
+          <>
+            <div className={`acct-input acct-input--static ${locationLockedCountryId ? 'acct-input--locked' : ''}`}>
+              {locationLockedCountryId && <Lock className="w-4 h-4 shrink-0 text-slate-400" aria-hidden />}
+              <span className="truncate">{profileData.country || 'Not set'}</span>
+            </div>
+            {locationLockedCountryId && (
+              <p className="acct-hint">
+                Your account is registered in {profileData.country || 'your detected region'}.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderSecuritySection = () => (
+    <div className="space-y-6">
+      <div className="acct-row">
+        <div className="min-w-0">
+          <p className="acct-label">Password</p>
+          <p className="text-sm text-slate-600 mt-1 tracking-widest">••••••••••</p>
+        </div>
+        <button type="button" onClick={() => navigate('/settings')} className="acct-btn-secondary acct-btn-secondary--outline">
+          Change
+        </button>
+      </div>
+
+      <div>
+        <p className="acct-label">Account Actions</p>
+        <p className="acct-hint mb-4">Manage your account settings and preferences.</p>
+        <div className="profile-account-actions-grid">
+          <button
+            type="button"
+            onClick={() => navigate('/contact', { state: { subject: 'Download My Data Request' } })}
+            className="profile-account-action-card"
+          >
+            <Download className="w-4 h-4 text-[#6D28D9]" />
+            <span>Download My Data</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/settings')}
+            className="profile-account-action-card"
+          >
+            <Key className="w-4 h-4 text-[#6D28D9]" />
+            <span>Change Password</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDeleteAcknowledged(false);
+              setConfirmDeleteAccount(true);
+            }}
+            data-no-global-confirm="true"
+            className="profile-account-action-card profile-account-action-card--danger"
+          >
+            <Trash2 className="w-4 h-4 text-red-600" />
+            <span>Delete Account</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAddressesSection = () => {
+    if (addressesLoading) return <ListSkeleton rows={3} withAvatar={false} />;
+
+    if (addresses.length === 0) {
+      return (
+        <div className="profile-address-empty">
+          <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm text-slate-600 font-medium">No saved addresses</p>
+          <p className="text-xs text-slate-400 mt-1 mb-4">Add a delivery address for faster checkout</p>
+          <button type="button" onClick={() => navigate('/user/addresses')} className="acct-btn-primary">
+            <Plus className="w-4 h-4" />
+            Add New Address
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="acct-address-list">
+          {addresses.map((address) => {
+            const { line1, line2, country } = formatAddressLine(address);
+            return (
+              <div key={address.id} className="acct-address-row">
+                <div className="profile-address-icon-box">{getAddressTypeIcon(address.address_type)}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-slate-900">{address.full_name}</p>
+                    <span className="acct-type-pill">{address.address_type || 'home'}</span>
+                    {address.is_default && <span className="profile-address-default-badge">Default</span>}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {[line1, line2, country].filter(Boolean).join(', ')}
+                  </p>
+                  {address.phone_number && <p className="text-xs text-slate-500 mt-0.5">{address.phone_number}</p>}
+                </div>
+                <div className="acct-address-actions">
+                  <button type="button" onClick={() => navigate('/user/addresses')} className="profile-address-link-btn">
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/user/addresses')}
+                    className="profile-address-link-btn profile-address-link-btn--danger"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Remove
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/user/addresses')}
+          className="profile-address-manage-btn mt-5"
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          Manage Addresses
+        </button>
+      </>
+    );
+  };
 
   // Show loading state
   if (loading) {
@@ -472,15 +736,17 @@ export const Profile: React.FC = () => {
       <div className="profile-page-shell">
         <Header />
         <main className="profile-page-main">
-          <div className="w-full max-w-2xl mx-auto px-4 py-6 space-y-6">
-            <div className="flex items-center gap-4">
-              <Skeleton rounded="full" className="h-16 w-16" />
-              <div className="flex-1 space-y-2">
-                <Skeleton rounded="sm" className="h-4 w-1/2" />
-                <Skeleton rounded="sm" className="h-3 w-1/3" />
+          <div className="profile-page-inner">
+            <div className="acct-layout">
+              <div className="acct-sidebar space-y-3">
+                <Skeleton rounded="sm" className="h-10 w-full" />
+                <Skeleton rounded="sm" className="h-10 w-full" />
+                <Skeleton rounded="sm" className="h-10 w-full" />
+              </div>
+              <div className="acct-panel">
+                <FormSkeleton fields={4} />
               </div>
             </div>
-            <FormSkeleton fields={5} />
           </div>
         </main>
         <Footer />
@@ -488,442 +754,163 @@ export const Profile: React.FC = () => {
     );
   }
 
+  const meta = sectionMeta[activeSection];
+
   return (
     <div className="profile-page-shell">
       <Header />
       <main className="profile-page-main">
-      <div className="profile-page-inner">
-        <nav className="profile-breadcrumb" aria-label="Breadcrumb">
-          <button type="button" onClick={() => navigate('/')} className="profile-breadcrumb-link">Home</button>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400" aria-hidden />
-          <button type="button" onClick={() => navigate('/profile')} className="profile-breadcrumb-link">My Account</button>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-400" aria-hidden />
-          <span className="profile-breadcrumb-current">My Profile</span>
-        </nav>
-        <h1 className="profile-page-title">My Profile</h1>
+        <div className="profile-page-inner">
+          <nav className="profile-breadcrumb" aria-label="Breadcrumb">
+            <button type="button" onClick={() => navigate('/')} className="profile-breadcrumb-link">Home</button>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" aria-hidden />
+            <button type="button" onClick={() => selectSection('personal')} className="profile-breadcrumb-link">My Account</button>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" aria-hidden />
+            <span className="profile-breadcrumb-current">{meta.title}</span>
+          </nav>
 
-        <div className="profile-layout">
-          <div className="profile-layout-main">
-
-        {successMessage && (
-          <div className="auth-alert auth-alert--success mb-6">
-            <CheckCircle className="h-5 w-5 shrink-0" />
-            <span className="flex-1">{successMessage}</span>
-            <button onClick={() => setSuccessMessage(null)} type="button" aria-label="Dismiss">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {error && editingField === null && (
-          <div className="auth-alert auth-alert--error mb-6">
-            <span className="flex-1">{error}</span>
-            <button onClick={() => setError(null)} type="button" aria-label="Dismiss">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        <div className="profile-card">
-          <div className="profile-card-header">
-            <Shield className="w-5 h-5 text-[#6D28D9]" />
-            <h2 className="profile-card-title">Login and Security</h2>
-          </div>
-
-          {/* ── Name ── */}
-          <div className="profile-row">
-            {editingField === 'name' ? (
-              <div className="space-y-3">
-                <label className="profile-row-label">Name</label>
-                <input
-                  type="text"
-                  value={editValue}
-                  onChange={e => setEditValue(e.target.value)}
-                  className="profile-field-input"
-                  autoFocus
-                />
-                {error && editingField === 'name' && (
-                  <p className="text-red-600 text-xs">{error}</p>
-                )}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleSaveField('name')}
-                    disabled={saving}
-                    className="profile-save-btn"
-                  >
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button onClick={cancelEditing} type="button" className="profile-cancel-btn">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="profile-field-row">
-                {renderFieldIcon(<User className="w-4 h-4" />)}
-                <div className="profile-field-body min-w-0">
-                  <p className="profile-row-label">Name</p>
-                  <p className="profile-row-value">{profileData.name || '—'}</p>
-                </div>
-                <button
-                  onClick={() => startEditing('name')}
-                  type="button"
-                  className="profile-pill-btn"
-                >
-                  Edit
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* ── Email ── */}
-          <div className="profile-row">
-            <div className="profile-field-row">
-              {renderFieldIcon(<Mail className="w-4 h-4" />)}
-              <div className="profile-field-body min-w-0">
-                <p className="profile-row-label">Email</p>
-                <p className="profile-row-value">{profileData.email || '—'}</p>
-                <p className="profile-row-hint">Email address cannot be changed</p>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Primary Mobile Number ── */}
-          <div className="profile-row">
-            {editingField === 'phone' ? (
-              <div className="space-y-3">
-                <label className="profile-row-label">Primary mobile number</label>
-                <input
-                  type="tel"
-                  value={editValue}
-                  onChange={e => setEditValue(e.target.value)}
-                  className="profile-field-input"
-                  autoFocus
-                />
-                {error && editingField === 'phone' && (
-                  <p className="text-red-600 text-xs">{error}</p>
-                )}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleSaveField('phone')}
-                    disabled={saving}
-                    className="profile-save-btn"
-                  >
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button onClick={cancelEditing} type="button" className="profile-cancel-btn">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="profile-field-row">
-                {renderFieldIcon(<Phone className="w-4 h-4" />)}
-                <div className="profile-field-body min-w-0">
-                  <p className="profile-row-label">Phone</p>
-                  <p className="profile-row-value">{profileData.phone || '—'}</p>
-                </div>
-                <button
-                  onClick={() => startEditing('phone')}
-                  type="button"
-                  className="profile-pill-btn"
-                >
-                  Edit
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* ── Country ── */}
-          <div className="profile-row">
-            {editingField === 'country' ? (
-              <div className="space-y-3">
-                <label className="profile-row-label">Country</label>
-                <select
-                  value={editValue}
-                  onChange={e => setEditValue(e.target.value)}
-                  className="profile-field-input bg-white"
-                  autoFocus
-                >
-                  <option value="">Select a country</option>
-                  {countries.map(c => (
-                    <option key={c.id} value={c.id}>{c.country_name}</option>
-                  ))}
-                </select>
-                {error && editingField === 'country' && (
-                  <p className="text-red-600 text-xs">{error}</p>
-                )}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleSaveField('country')}
-                    disabled={saving}
-                    className="profile-save-btn"
-                  >
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button onClick={cancelEditing} type="button" className="profile-cancel-btn">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="profile-field-row">
-                  {renderFieldIcon(<Globe className="w-4 h-4" />)}
-                  <div className="profile-field-body min-w-0">
-                    <p className="profile-row-label">Country</p>
-                    <p className="profile-row-value">{profileData.country || 'Not set'}</p>
-                    {locationLockedCountryId && (
-                      <p className="profile-row-hint">
-                        Your account is registered in {profileData.country || 'your detected region'}.
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => startEditing('country')}
-                    disabled={Boolean(locationLockedCountryId)}
-                    type="button"
-                    className="profile-pill-btn"
-                  >
-                    {locationLockedCountryId ? 'Locked' : 'Edit'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* ── Password ── */}
-          <div className="profile-row">
-            <div className="profile-field-row">
-              {renderFieldIcon(<Lock className="w-4 h-4" />)}
-              <div className="profile-field-body min-w-0">
-                <p className="profile-row-label">Password</p>
-                <p className="profile-row-value tracking-widest">••••••••••</p>
-              </div>
-              <button
-                onClick={() => navigate('/user/settings')}
-                type="button"
-                className="profile-pill-btn"
-              >
-                Change
-              </button>
-            </div>
-          </div>
-
-          {/* ── Account actions ── */}
-          <div className="profile-row profile-row--actions">
-            <p className="profile-row-label">Account Actions</p>
-            <p className="profile-row-hint mb-4">Manage your account settings and preferences.</p>
-            <div className="profile-account-actions-grid">
+          <div className="acct-layout">
+            <aside className="acct-sidebar" aria-label="Account menu">
+              <nav className="acct-menu">
+                {menuItems.map((item) => {
+                  const isActive = item.section === activeSection;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => (item.section ? selectSection(item.section) : navigate(item.path as string))}
+                      className={`acct-menu-item ${isActive ? 'acct-menu-item--active' : ''}`}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+              <div className="acct-menu-divider" />
               <button
                 type="button"
-                onClick={() => navigate('/contact', { state: { subject: 'Download My Data Request' } })}
-                className="profile-account-action-card"
-              >
-                <Download className="w-4 h-4 text-[#6D28D9]" />
-                <span>Download My Data</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/user/settings')}
-                className="profile-account-action-card"
-              >
-                <Key className="w-4 h-4 text-[#6D28D9]" />
-                <span>Change Password</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteAcknowledged(false);
-                  setConfirmDeleteAccount(true);
-                }}
+                onClick={() => setConfirmLogout(true)}
                 data-no-global-confirm="true"
-                className="profile-account-action-card profile-account-action-card--danger"
+                className="acct-menu-item acct-menu-item--logout"
               >
-                <Trash2 className="w-4 h-4 text-red-600" />
-                <span>Delete Account</span>
+                <LogOut className="w-[18px] h-[18px]" />
+                <span>Logout</span>
               </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => setConfirmLogout(true)}
-              data-no-global-confirm="true"
-              className="profile-logout-link"
-            >
-              <LogOut className="w-4 h-4" />
-              Log out of this device
-            </button>
-          </div>
-        </div>
-          </div>
+            </aside>
 
-          <aside className="profile-layout-aside">
-            <div className="profile-address-panel">
-              <div className="profile-address-panel-header">
-                <h2 className="profile-address-title">My Addresses</h2>
-                <button
-                  type="button"
-                  onClick={() => navigate('/user/addresses')}
-                  className="profile-address-add-link"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add New Address
-                </button>
-              </div>
-
-              {addressesLoading ? (
-                <ListSkeleton rows={2} withAvatar={false} />
-              ) : addresses.length === 0 ? (
-                <div className="profile-address-empty">
-                  <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-600 font-medium">No saved addresses</p>
-                  <p className="text-xs text-slate-400 mt-1 mb-4">Add a delivery address for faster checkout</p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/user/addresses')}
-                    className="profile-address-manage-btn w-full"
-                  >
+            <section className="acct-panel" aria-labelledby="acct-section-title">
+              <div className="acct-panel-head">
+                <div className="min-w-0">
+                  <h1 id="acct-section-title" className="acct-panel-title">{meta.title}</h1>
+                  <p className="acct-panel-subtitle">{meta.subtitle}</p>
+                </div>
+                {activeSection === 'addresses' && addresses.length > 0 && (
+                  <button type="button" onClick={() => navigate('/user/addresses')} className="profile-address-add-link">
+                    <Plus className="w-4 h-4" />
                     Add New Address
                   </button>
-                </div>
-              ) : (
-                <div className="profile-address-list">
-                  {addresses.slice(0, 3).map((address) => {
-                    const { line1, line2, country } = formatAddressLine(address);
-                    return (
-                      <div key={address.id} className="profile-address-card">
-                        <div className="flex gap-3">
-                          <div className="profile-address-icon-box">
-                            {getAddressTypeIcon(address.address_type)}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <span className="text-xs font-semibold text-slate-700 capitalize">
-                                {address.address_type || 'home'}
-                              </span>
-                              {address.is_default && (
-                                <span className="profile-address-default-badge">Default</span>
-                              )}
-                            </div>
-                            <p className="text-sm font-semibold text-slate-900">{address.full_name}</p>
-                            {line1 && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{line1}</p>}
-                            {line2 && <p className="text-xs text-slate-500 leading-relaxed">{line2}</p>}
-                            {country && <p className="text-xs text-slate-500 leading-relaxed">{country}</p>}
-                            {address.phone_number && (
-                              <p className="text-xs text-slate-500 mt-1">{address.phone_number}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="profile-address-card-actions">
-                          <button
-                            type="button"
-                            onClick={() => navigate('/user/addresses')}
-                            className="profile-address-link-btn"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => navigate('/user/addresses')}
-                            className="profile-address-link-btn profile-address-link-btn--danger"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                )}
+              </div>
+
+              {successMessage && (
+                <div className="auth-alert auth-alert--success mb-6">
+                  <CheckCircle className="h-5 w-5 shrink-0" />
+                  <span className="flex-1">{successMessage}</span>
+                  <button onClick={() => setSuccessMessage(null)} type="button" aria-label="Dismiss">
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               )}
 
-              {addresses.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/user/addresses')}
-                  className="profile-address-manage-btn w-full mt-4"
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                  Manage Addresses
-                </button>
+              {error && editingField === null && (
+                <div className="auth-alert auth-alert--error mb-6">
+                  <span className="flex-1">{error}</span>
+                  <button onClick={() => setError(null)} type="button" aria-label="Dismiss">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               )}
+
+              {activeSection === 'personal' && renderPersonalSection()}
+              {activeSection === 'security' && renderSecuritySection()}
+              {activeSection === 'addresses' && renderAddressesSection()}
+            </section>
+          </div>
+
+          {confirmLogout && (
+            <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="logout-confirm-title">
+              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm border border-slate-100">
+                <h3 id="logout-confirm-title" className="text-lg font-bold text-slate-900 mb-2">Confirm Logout</h3>
+                <p className="text-sm text-slate-600 mb-5">Are you sure you want to log out of your account?</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setConfirmLogout(false)}
+                    type="button"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => { setConfirmLogout(false); await handleLogout(); }}
+                    type="button"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition font-semibold"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </div>
             </div>
-          </aside>
+          )}
+
+          {confirmDeleteAccount && (
+            <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md border border-red-100">
+                <h3 id="delete-account-title" className="text-lg font-bold text-red-700 mb-2">Delete Account</h3>
+                <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+                  This will permanently remove your profile, order history access, saved addresses, and wishlist.
+                  This action cannot be undone.
+                </p>
+                <label className="flex items-start gap-3 cursor-pointer mb-5 p-3 rounded-xl bg-red-50 border border-red-100">
+                  <input
+                    type="checkbox"
+                    checked={deleteAcknowledged}
+                    onChange={(e) => setDeleteAcknowledged(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded border-red-300 text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-sm text-slate-700 leading-relaxed">
+                    I understand that deleting my account is permanent and all associated data will be lost.
+                  </span>
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setConfirmDeleteAccount(false);
+                      setDeleteAcknowledged(false);
+                    }}
+                    type="button"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfirmDeleteAccount(false);
+                      setDeleteAcknowledged(false);
+                      navigate('/contact', { state: { subject: 'Account Deletion Request' } });
+                    }}
+                    disabled={!deleteAcknowledged}
+                    type="button"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-
-        {confirmLogout && (
-          <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="logout-confirm-title">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm border border-slate-100">
-              <h3 id="logout-confirm-title" className="text-lg font-bold text-slate-900 mb-2">Confirm Logout</h3>
-              <p className="text-sm text-slate-600 mb-5">Are you sure you want to log out of your account?</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setConfirmLogout(false)}
-                  type="button"
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => { setConfirmLogout(false); await handleLogout(); }}
-                  type="button"
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition font-semibold"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {confirmDeleteAccount && (
-          <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md border border-red-100">
-              <h3 id="delete-account-title" className="text-lg font-bold text-red-700 mb-2">Delete Account</h3>
-              <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                This will permanently remove your profile, order history access, saved addresses, and wishlist.
-                This action cannot be undone.
-              </p>
-              <label className="flex items-start gap-3 cursor-pointer mb-5 p-3 rounded-xl bg-red-50 border border-red-100">
-                <input
-                  type="checkbox"
-                  checked={deleteAcknowledged}
-                  onChange={(e) => setDeleteAcknowledged(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded border-red-300 text-red-600 focus:ring-red-500"
-                />
-                <span className="text-sm text-slate-700 leading-relaxed">
-                  I understand that deleting my account is permanent and all associated data will be lost.
-                </span>
-              </label>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setConfirmDeleteAccount(false);
-                    setDeleteAcknowledged(false);
-                  }}
-                  type="button"
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setConfirmDeleteAccount(false);
-                    setDeleteAcknowledged(false);
-                    navigate('/contact', { state: { subject: 'Account Deletion Request' } });
-                  }}
-                  disabled={!deleteAcknowledged}
-                  type="button"
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Delete Account
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
       </main>
       <Footer />
     </div>
