@@ -107,7 +107,7 @@ const imageMap: { [key: string]: string } = {
   'Beauty & Health': '/images/BEAUTY_AND_PERSONAL_CARE.png',
   'Beauty & Personal Care': '/images/BEAUTY_AND_PERSONAL_CARE.png',
   'Home & Garden': '/images/HOME_AND_GARDEN.png',
-  'Grocery': '/images/GROCERY.png',
+  'Grocery': '/images/Grocery.png',
   'Grocery & Gourmet Food': '/images/GROCERY_AND_GOURMET_FOOD.png',
   'Grocery & Gourmet': '/images/GROCERY_AND_GOURMET_FOOD.png',
   'Health, Household & Baby Care': '/images/HEALTH_HOUSEHOLD_AND_BABY_CARE.png',
