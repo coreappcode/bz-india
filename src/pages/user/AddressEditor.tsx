@@ -142,8 +142,6 @@ const AddressEditor: React.FC = () => {
             <span className="profile-breadcrumb-current">{isEditing ? 'Edit address' : 'Add address'}</span>
           </nav>
 
-          <h1 className="addr-page-title">{title}</h1>
-
           {error && (
             <div className="auth-alert auth-alert--error mb-5">
               <AlertCircle className="h-5 w-5 shrink-0" />
@@ -153,12 +151,16 @@ const AddressEditor: React.FC = () => {
 
           {loading ? (
             <div className="addr-form">
+              <h1 className="addr-page-title">{title}</h1>
               <FormSkeleton fields={6} />
             </div>
           ) : isEditing && !address ? (
-            <button type="button" onClick={() => navigate(ADDRESSES_PATH)} className="addr-btn addr-btn--secondary">
-              Back to My Addresses
-            </button>
+            <div className="addr-form">
+              <h1 className="addr-page-title">{title}</h1>
+              <button type="button" onClick={() => navigate(ADDRESSES_PATH)} className="addr-btn addr-btn--secondary">
+                Back to My Addresses
+              </button>
+            </div>
           ) : (
             <AddressForm
               key={address?.id || 'new'}

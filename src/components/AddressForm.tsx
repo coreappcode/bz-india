@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Home, Briefcase, MapPin, Crosshair, Loader2, Phone } from 'lucide-react';
-import { detectLocationWithCaching } from '../lib/locationService';
+import { Home, Briefcase, MoreHorizontal } from 'lucide-react';
 import { fetchCountries, type Country } from '../lib/shippingDataService';
 
 export interface Address {
@@ -55,8 +54,6 @@ const AddressForm: React.FC<AddressFormProps> = ({
   const [countriesLoading, setCountriesLoading] = useState(true);
   const [countriesError, setCountriesError] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [locating, setLocating] = useState(false);
-  const [locationMessage, setLocationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -128,28 +125,6 @@ const AddressForm: React.FC<AddressFormProps> = ({
     }
   };
 
-  const handleUseCurrentLocation = async () => {
-    setLocating(true);
-    setLocationMessage(null);
-    try {
-      const { data, error } = await detectLocationWithCaching({ forceRefresh: true });
-      if (error || !data) throw new Error(error || 'Location unavailable');
-      setFormData((prev) => ({
-        ...prev,
-        city: data.city || prev.city,
-        state: data.state || prev.state,
-        postalCode: data.postalCode || prev.postalCode,
-        country: data.country || prev.country,
-      }));
-      setErrors((prev) => ({ ...prev, city: '', state: '', postalCode: '', country: '' }));
-      setLocationMessage('Location filled in. Please add your house / street details.');
-    } catch {
-      setLocationMessage('Could not get your location. Please allow location access or enter it manually.');
-    } finally {
-      setLocating(false);
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
@@ -180,31 +155,18 @@ const AddressForm: React.FC<AddressFormProps> = ({
   const typeOptions: Array<{ value: 'home' | 'work' | 'other'; label: string; icon: React.ReactNode }> = [
     { value: 'home', label: 'Home', icon: <Home size={14} /> },
     { value: 'work', label: 'Work', icon: <Briefcase size={14} /> },
-    { value: 'other', label: 'Other', icon: <MapPin size={14} /> },
+    { value: 'other', label: 'Other', icon: <MoreHorizontal size={14} /> },
   ];
 
   const renderError = (field: string) =>
     errors[field] ? <p className="addr-error">{errors[field]}</p> : null;
 
-  const previewLines = [
-    [formData.streetAddress1, formData.streetAddress2].filter(Boolean).join(', '),
-    [formData.city, formData.state].filter(Boolean).join(', ') + (formData.postalCode ? ` - ${formData.postalCode}` : ''),
-    formData.country,
-  ].filter((line) => line && line.trim() !== '' && line.trim() !== '-');
-
   return (
-    <div className="addr-layout">
       <form onSubmit={handleSubmit} className="addr-form" noValidate>
-        <button
-          type="button"
-          onClick={handleUseCurrentLocation}
-          disabled={locating}
-          className="addr-location-btn"
-        >
-          {locating ? <Loader2 size={16} className="animate-spin" /> : <Crosshair size={16} />}
-          {locating ? 'Detecting location...' : 'Use my current location'}
-        </button>
-        {locationMessage && <p className="addr-hint">{locationMessage}</p>}
+        <div>
+          <h1 className="addr-page-title">{initialData ? 'Edit your address' : 'Add a new address'}</h1>
+          <p className="addr-subtitle">Enter your delivery address details below. Fields marked with * are required.</p>
+        </div>
 
         <div className="addr-grid">
           <div className="addr-field">
@@ -236,7 +198,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             {renderError('phoneNumber')}
           </div>
 
-          <div className="addr-field addr-field--full">
+          <div className="addr-field">
             <label className="addr-label" htmlFor="addr-email">Email address <span>*</span></label>
             <input
               id="addr-email"
@@ -248,79 +210,6 @@ const AddressForm: React.FC<AddressFormProps> = ({
               className={inputClass('email')}
             />
             {renderError('email')}
-          </div>
-
-          <div className="addr-field addr-field--full">
-            <label className="addr-label" htmlFor="addr-streetAddress1">
-              Flat, house no., building, company <span>*</span>
-            </label>
-            <input
-              id="addr-streetAddress1"
-              type="text"
-              name="streetAddress1"
-              autoComplete="address-line1"
-              value={formData.streetAddress1 || ''}
-              onChange={handleChange}
-              className={inputClass('streetAddress1')}
-            />
-            {renderError('streetAddress1')}
-          </div>
-
-          <div className="addr-field addr-field--full">
-            <label className="addr-label" htmlFor="addr-streetAddress2">
-              Area, street, village, landmark <span className="addr-optional">(optional)</span>
-            </label>
-            <input
-              id="addr-streetAddress2"
-              type="text"
-              name="streetAddress2"
-              autoComplete="address-line2"
-              value={formData.streetAddress2 || ''}
-              onChange={handleChange}
-              className="addr-input"
-            />
-          </div>
-
-          <div className="addr-field">
-            <label className="addr-label" htmlFor="addr-postalCode">PIN / ZIP code <span>*</span></label>
-            <input
-              id="addr-postalCode"
-              type="text"
-              name="postalCode"
-              autoComplete="postal-code"
-              value={formData.postalCode || ''}
-              onChange={handleChange}
-              className={inputClass('postalCode')}
-            />
-            {renderError('postalCode')}
-          </div>
-
-          <div className="addr-field">
-            <label className="addr-label" htmlFor="addr-city">Town / City <span>*</span></label>
-            <input
-              id="addr-city"
-              type="text"
-              name="city"
-              autoComplete="address-level2"
-              value={formData.city || ''}
-              onChange={handleChange}
-              className={inputClass('city')}
-            />
-            {renderError('city')}
-          </div>
-
-          <div className="addr-field">
-            <label className="addr-label" htmlFor="addr-state">State / Province <span>*</span></label>
-            <input
-              id="addr-state"
-              type="text"
-              name="state"
-              autoComplete="address-level1"
-              value={formData.state || ''}
-              onChange={handleChange}
-              className={inputClass('state')}
-            />
-            {renderError('state')}
           </div>
 
           <div className="addr-field">
@@ -349,6 +238,79 @@ const AddressForm: React.FC<AddressFormProps> = ({
             {renderError('country')}
           </div>
 
+          <div className="addr-field">
+            <label className="addr-label" htmlFor="addr-streetAddress1">
+              Flat, house no., building, company <span>*</span>
+            </label>
+            <input
+              id="addr-streetAddress1"
+              type="text"
+              name="streetAddress1"
+              autoComplete="address-line1"
+              value={formData.streetAddress1 || ''}
+              onChange={handleChange}
+              className={inputClass('streetAddress1')}
+            />
+            {renderError('streetAddress1')}
+          </div>
+
+          <div className="addr-field">
+            <label className="addr-label" htmlFor="addr-streetAddress2">
+              Area, street, village, landmark <span className="addr-optional">(optional)</span>
+            </label>
+            <input
+              id="addr-streetAddress2"
+              type="text"
+              name="streetAddress2"
+              autoComplete="address-line2"
+              value={formData.streetAddress2 || ''}
+              onChange={handleChange}
+              className="addr-input"
+            />
+          </div>
+
+          <div className="addr-field addr-field--third">
+            <label className="addr-label" htmlFor="addr-city">Town / City <span>*</span></label>
+            <input
+              id="addr-city"
+              type="text"
+              name="city"
+              autoComplete="address-level2"
+              value={formData.city || ''}
+              onChange={handleChange}
+              className={inputClass('city')}
+            />
+            {renderError('city')}
+          </div>
+
+          <div className="addr-field addr-field--third">
+            <label className="addr-label" htmlFor="addr-state">State / Province <span>*</span></label>
+            <input
+              id="addr-state"
+              type="text"
+              name="state"
+              autoComplete="address-level1"
+              value={formData.state || ''}
+              onChange={handleChange}
+              className={inputClass('state')}
+            />
+            {renderError('state')}
+          </div>
+
+          <div className="addr-field addr-field--third">
+            <label className="addr-label" htmlFor="addr-postalCode">PIN / ZIP code <span>*</span></label>
+            <input
+              id="addr-postalCode"
+              type="text"
+              name="postalCode"
+              autoComplete="postal-code"
+              value={formData.postalCode || ''}
+              onChange={handleChange}
+              className={inputClass('postalCode')}
+            />
+            {renderError('postalCode')}
+          </div>
+
           <div className="addr-field addr-field--full">
             <label className="addr-label" htmlFor="addr-deliveryNotes">
               Delivery instructions <span className="addr-optional">(optional)</span>
@@ -365,8 +327,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
           </div>
         </div>
 
-        <div className="addr-type-row">
-          <span className="addr-label !mb-0">Address type</span>
+        <div className="addr-footer">
           <div className="addr-type-group" role="radiogroup" aria-label="Address type">
             {typeOptions.map((option) => {
               const selected = formData.addressType === option.value;
@@ -386,51 +347,25 @@ const AddressForm: React.FC<AddressFormProps> = ({
               );
             })}
           </div>
-        </div>
-
-        <label className="addr-switch">
-          <input
-            type="checkbox"
-            name="isDefault"
-            checked={formData.isDefault || false}
-            onChange={handleChange}
-            className="sr-only peer"
-          />
-          <span className="addr-switch-track" aria-hidden />
-          <span>Make this my default address</span>
-        </label>
-
-        <div className="addr-actions">
-          <button type="submit" disabled={isLoading} className="addr-btn addr-btn--primary">
-            {isLoading ? 'Saving...' : initialData ? 'Update address' : 'Save address'}
-          </button>
-          <button type="button" onClick={onCancel} className="addr-btn addr-btn--secondary">
-            Cancel
-          </button>
+          <label className="addr-default">
+            <input
+              type="checkbox"
+              name="isDefault"
+              checked={formData.isDefault || false}
+              onChange={handleChange}
+            />
+            <span>Set as default address</span>
+          </label>
+          <div className="addr-actions">
+            <button type="submit" disabled={isLoading} className="addr-btn addr-btn--primary">
+              {isLoading ? 'Saving...' : initialData ? 'Update address' : 'Save address'}
+            </button>
+            <button type="button" onClick={onCancel} className="addr-btn addr-btn--secondary">
+              Cancel
+            </button>
+          </div>
         </div>
       </form>
-
-      <aside className="addr-preview" aria-label="Address preview">
-        <h2 className="addr-preview-title">Address preview</h2>
-        <div className="addr-preview-card">
-          <span className="addr-type-pill capitalize">{formData.addressType || 'home'}</span>
-          <p className="text-sm font-semibold text-slate-900 mt-2">{formData.fullName || 'Your name'}</p>
-          {previewLines.length > 0 ? (
-            previewLines.map((line, index) => (
-              <p key={index} className="text-xs text-slate-600 leading-relaxed">{line}</p>
-            ))
-          ) : (
-            <p className="text-xs text-slate-400">Your address will appear here</p>
-          )}
-          {formData.phoneNumber && (
-            <p className="text-xs text-slate-600 mt-1.5 flex items-center gap-1.5">
-              <Phone size={12} /> {formData.phoneNumber}
-            </p>
-          )}
-        </div>
-        <p className="addr-tip">Tip: add a landmark for faster delivery.</p>
-      </aside>
-    </div>
   );
 };
 
