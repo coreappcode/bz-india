@@ -1,11 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CartPage } from '../pages/user/Cart';
 
 const mocks = vi.hoisted(() => ({
-  addToWishlist: vi.fn(),
+  addToWishlistConfirmed: vi.fn(),
   removeFromCart: vi.fn(),
+  removeFromCartConfirmed: vi.fn(),
   updateQuantity: vi.fn(),
   navigate: vi.fn(),
   variantPrices: vi.fn(),
@@ -33,7 +34,7 @@ vi.mock('../contexts/AuthContext', () => ({
 }));
 vi.mock('../contexts/CartContext', () => ({
   useCart: () => ({
-    items, removeFromCart: mocks.removeFromCart, updateQuantity: mocks.updateQuantity,
+    items, removeFromCart: mocks.removeFromCart, removeFromCartConfirmed: mocks.removeFromCartConfirmed, updateQuantity: mocks.updateQuantity,
   }),
 }));
 vi.mock('../contexts/CurrencyContext', () => ({
@@ -42,7 +43,7 @@ vi.mock('../contexts/CurrencyContext', () => ({
   }),
 }));
 vi.mock('../contexts/WishlistContext', () => ({
-  useWishlist: () => ({ addToWishlist: mocks.addToWishlist }),
+  useWishlist: () => ({ addToWishlistConfirmed: mocks.addToWishlistConfirmed }),
 }));
 vi.mock('../hooks/useDestinationCountry', () => ({ useDestinationCountry: () => 'India' }));
 vi.mock('../lib/pricingService', () => ({
@@ -59,27 +60,64 @@ describe('cart item cards', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mocks.addToWishlistConfirmed.mockResolvedValue(undefined);
+    mocks.removeFromCartConfirmed.mockResolvedValue(undefined);
     mocks.variantPrices.mockResolvedValue({
       data: { 'item-1': { sellingPrice: 125 } }, error: null, errorsByKey: {},
     });
   });
 
-  it('shows verified pricing and variant details, adds to wishlist without removing, and confirms removal', async () => {
+  it('shows verified pricing and variant details and confirms removal', async () => {
     render(<MemoryRouter><CartPage /></MemoryRouter>);
     expect(await screen.findByText('INR 125')).toBeInTheDocument();
     expect(screen.getByText('Size: M · Color: Blue')).toBeInTheDocument();
     expect(screen.getByText('In Stock')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Select Test product' })).toBeChecked();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Test product to wishlist' }));
-    expect(mocks.addToWishlist).toHaveBeenCalledWith(mocks.item.product);
-    expect(mocks.removeFromCart).not.toHaveBeenCalled();
-
     fireEvent.click(screen.getByRole('button', { name: 'Remove Test product from cart' }));
     expect(screen.getByText('Remove Item')).toBeInTheDocument();
     expect(mocks.removeFromCart).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /^Remove$/ }));
     expect(mocks.removeFromCart).toHaveBeenCalledWith('item-1');
+  });
+
+  it('shows loading until wishlist and cart updates complete, then displays success', async () => {
+    let finishWishlist!: () => void;
+    let finishRemoval!: () => void;
+    mocks.addToWishlistConfirmed.mockReturnValue(new Promise<void>((resolve) => { finishWishlist = resolve; }));
+    mocks.removeFromCartConfirmed.mockReturnValue(new Promise<void>((resolve) => { finishRemoval = resolve; }));
+    render(<MemoryRouter><CartPage /></MemoryRouter>);
+    await screen.findByText('INR 125');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Test product to wishlist' }));
+    expect(mocks.addToWishlistConfirmed).toHaveBeenCalledWith(mocks.item.product, 'user-1');
+    expect(screen.getByRole('button', { name: 'Adding Test product to wishlist' })).toBeDisabled();
+    expect(screen.getByText('Adding to Wishlist…')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Proceed to Checkout/ })).toBeDisabled();
+    expect(mocks.removeFromCartConfirmed).not.toHaveBeenCalled();
+    await act(async () => { finishWishlist(); });
+    expect(mocks.removeFromCartConfirmed).toHaveBeenCalledWith('item-1');
+    expect(screen.getByText('Adding to Wishlist…')).toBeInTheDocument();
+    await act(async () => { finishRemoval(); });
+    expect(screen.getByText('Product added to wishlist')).toBeInTheDocument();
+  });
+
+  it('keeps the item in the cart and reports wishlist failure', async () => {
+    mocks.addToWishlistConfirmed.mockRejectedValue(new Error('Network error'));
+    render(<MemoryRouter><CartPage /></MemoryRouter>);
+    await screen.findByText('INR 125');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Test product to wishlist' }));
+    expect(await screen.findByText('Could not add product to your wishlist. Please try again.')).toBeInTheDocument();
+    expect(mocks.removeFromCartConfirmed).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Add Test product to wishlist' })).toBeEnabled();
+  });
+
+  it('reports a partial failure if the wishlist succeeds but the cart removal fails', async () => {
+    mocks.removeFromCartConfirmed.mockRejectedValue(new Error('Network error'));
+    render(<MemoryRouter><CartPage /></MemoryRouter>);
+    await screen.findByText('INR 125');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Test product to wishlist' }));
+    expect(await screen.findByText('Product was added to your wishlist, but could not be removed from your cart.')).toBeInTheDocument();
+    expect(screen.queryByText('Product added to wishlist')).not.toBeInTheDocument();
   });
 
   it('updates quantity and checks out only selected cart items', async () => {

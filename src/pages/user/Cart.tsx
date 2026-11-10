@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
 
 import { ListSkeleton } from '../../components/common/Skeleton';
+import { ToastContainer } from '../../components/common/ToastContainer';
+import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -19,9 +21,10 @@ import { useDestinationCountry } from '../../hooks/useDestinationCountry';
 
 export const CartPage: React.FC = () => {
   const { user, currentAuthUser } = useAuth();
-  const { items: cartItems, removeFromCart, updateQuantity } = useCart();
+  const { items: cartItems, removeFromCart, removeFromCartConfirmed, updateQuantity } = useCart();
   const { formatPrice, convertPrice, currency } = useCurrency();
-  const { addToWishlist } = useWishlist();
+  const { addToWishlistConfirmed } = useWishlist();
+  const toast = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -39,6 +42,8 @@ export const CartPage: React.FC = () => {
   const [, setPublicPriceLoading] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [wishlistMovingId, setWishlistMovingId] = useState<string | null>(null);
+  const wishlistMoveInProgress = useRef(false);
 
   useEffect(() => {
     if (!user && !currentAuthUser) {
@@ -72,8 +77,27 @@ export const CartPage: React.FC = () => {
     }, 300);
   };
 
-  const handleAddToWishlist = (cartItem: (typeof cartItems)[0]) => {
-    addToWishlist(cartItem.product);
+  const handleAddToWishlist = async (cartItem: (typeof cartItems)[0]) => {
+    if (wishlistMoveInProgress.current) return;
+    wishlistMoveInProgress.current = true;
+    setWishlistMovingId(cartItem.cartItemId);
+    let added = false;
+    try {
+      const userId = user?.id || currentAuthUser?.userId;
+      if (!userId) throw new Error('Please sign in to update your wishlist.');
+      await addToWishlistConfirmed(cartItem.product, userId);
+      added = true;
+      await removeFromCartConfirmed(cartItem.cartItemId);
+      toast.success('Product added to wishlist');
+    } catch (error) {
+      console.error('Unable to move cart item to wishlist:', error);
+      toast.error(added
+        ? 'Product was added to your wishlist, but could not be removed from your cart.'
+        : 'Could not add product to your wishlist. Please try again.');
+    } finally {
+      wishlistMoveInProgress.current = false;
+      setWishlistMovingId(null);
+    }
   };
 
   const selectedCountry = useDestinationCountry({
@@ -309,6 +333,7 @@ export const CartPage: React.FC = () => {
       className="h-[100dvh] overflow-hidden bg-white flex flex-col md:min-h-screen md:h-auto md:overflow-visible"
     >
       <Header />
+      <ToastContainer toasts={toast.toasts} dismiss={toast.dismiss} />
 
       <main
         className="flex flex-1 min-h-0 w-full max-w-[1100px] mx-auto flex-col bg-white px-0 py-0 pb-0 md:block md:bg-transparent md:px-4 md:py-5 md:pb-5"
@@ -372,19 +397,22 @@ export const CartPage: React.FC = () => {
                   : publicPriceMap[cartItem.product.id]
                     ?? pricingByProductId.get(cartItem.product.id)?.publicUnitPrice
                     ?? cartItem.product.price;
-                const isUpdating = updatingId === cartItem.cartItemId;
+                const isMovingToWishlist = wishlistMovingId === cartItem.cartItemId;
+                const isUpdating = updatingId === cartItem.cartItemId || isMovingToWishlist;
                 const unavailableReason = unavailableItems[cartItem.cartItemId];
 
                 return (
                   <div
                     key={cartItem.cartItemId}
-                    className={`mb-2 bg-white border border-slate-200 last:mb-0 ${isUpdating ? 'opacity-50 pointer-events-none' : ''}`}
+                    className={`mb-2 bg-white border border-slate-200 last:mb-0 ${isUpdating ? 'opacity-60' : ''}`}
+                    aria-busy={isUpdating}
                   >
                     <div className="flex gap-3 p-3 sm:p-4">
                       <input
                         type="checkbox"
                         checked={selectedItemIds.includes(cartItem.cartItemId)}
                         onChange={() => toggleSelectItem(cartItem.cartItemId)}
+                        disabled={isUpdating}
                         aria-label={`Select ${cartItem.product.name}`}
                         className="mt-1 w-[18px] h-[18px] accent-[#ff9900] cursor-pointer shrink-0"
                       />
@@ -466,12 +494,14 @@ export const CartPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleAddToWishlist(cartItem)}
-                        disabled={isUpdating}
-                        aria-label={`Add ${cartItem.product.name} to wishlist`}
+                        disabled={isUpdating || wishlistMovingId !== null}
+                        aria-label={isMovingToWishlist ? `Adding ${cartItem.product.name} to wishlist` : `Add ${cartItem.product.name} to wishlist`}
                         className="flex min-h-11 items-center justify-center gap-2 px-2 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-[#007185] disabled:opacity-50"
                       >
-                        <Heart className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        Add to Wishlist
+                        {isMovingToWishlist
+                          ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+                          : <Heart className="h-4 w-4 shrink-0" aria-hidden="true" />}
+                        {isMovingToWishlist ? 'Adding to Wishlist…' : 'Add to Wishlist'}
                       </button>
                       <button
                         type="button"
@@ -536,7 +566,7 @@ export const CartPage: React.FC = () => {
 
                 <button
                   onClick={handleCheckout}
-                  disabled={!hasResolvedSelectedPrices || payableSelectedItems.length === 0}
+                  disabled={!hasResolvedSelectedPrices || payableSelectedItems.length === 0 || wishlistMovingId !== null}
                   className="w-full mt-4 py-3.5 bg-[#ffd814] border border-[#fcd200] rounded-[10px] text-[15px] font-bold text-[#0f1111] cursor-pointer hover:bg-[#f7ca00] active:bg-[#e8b800] transition-colors"
                 >
                   Proceed to Checkout →

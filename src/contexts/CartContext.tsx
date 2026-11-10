@@ -22,6 +22,7 @@ interface CartContextType {
     options?: { selectedSize?: string | null; selectedColor?: string | null; selectedVariantId?: string | null; selectedVariantSku?: string | null; variantPrice?: number | null }
   ) => void;
   removeFromCart: (cartItemId: string) => void;
+  removeFromCartConfirmed: (cartItemId: string) => Promise<void>;
   updateQuantity: (cartItemId: string, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
@@ -424,6 +425,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const removeFromCartConfirmed = async (cartItemId: string) => {
+    const target = items.find((item) => item.cartItemId === cartItemId);
+    if (!target) throw new Error('Cart item is no longer available.');
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('Please sign in to update your cart.');
+
+    pendingDeletesRef.current.add(cartItemId);
+    try {
+      let query = supabase.from('cart_items').delete()
+        .eq('user_id', user.id)
+        .eq('product_id', target.product.id);
+      query = target.selectedSize ? query.eq('selected_size', target.selectedSize) : query.is('selected_size', null);
+      query = target.selectedColor ? query.eq('selected_color', target.selectedColor) : query.is('selected_color', null);
+      query = target.selectedVariantSku ? query.eq('selected_variant_sku', target.selectedVariantSku) : query.is('selected_variant_sku', null);
+      const { data, error } = await query.select('id');
+      if (error) throw error;
+      if (!data?.length) throw new Error('Cart item could not be removed.');
+      setItems((prev) => prev.filter((item) => item.cartItemId !== cartItemId));
+      setTimeout(() => pendingDeletesRef.current.delete(cartItemId), 1500);
+    } catch (error) {
+      pendingDeletesRef.current.delete(cartItemId);
+      throw error;
+    }
+  };
+
   const updateQuantity = (cartItemId: string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(cartItemId);
@@ -528,7 +555,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const totalPrice = items.reduce((sum, item) => sum + (item.variantPrice ?? item.product.price) * item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addToCart, removeFromCart, updateQuantity, clearCart, totalItems, totalPrice, createOrderFromCart, isCreatingOrder, syncCartWithBackend, isLoading, loadError }}>
+    <CartContext.Provider value={{ items, addToCart, removeFromCart, removeFromCartConfirmed, updateQuantity, clearCart, totalItems, totalPrice, createOrderFromCart, isCreatingOrder, syncCartWithBackend, isLoading, loadError }}>
       {children}
     </CartContext.Provider>
   );

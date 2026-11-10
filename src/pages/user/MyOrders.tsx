@@ -11,7 +11,7 @@ import {
   Package, ShoppingBag,
   Clock, Truck, CheckCircle2, XCircle, RotateCw,
   Search, ArrowLeft, Copy, Star, FileText,
-  ShoppingCart, HelpCircle, MapPin, X, IndianRupee,
+  ShoppingCart, HelpCircle, MapPin, X, IndianRupee, ChevronRight,
 } from 'lucide-react';
 import {
   fetchOrdersByUser,
@@ -756,7 +756,7 @@ export const MyOrders: React.FC = () => {
         </div>
 
         {/* Orders */}
-        <div className="max-w-4xl mx-auto px-4 py-3 space-y-4">
+        <div className="max-w-4xl mx-auto px-4 py-3 space-y-2">
           {loading ? (
             <ListSkeleton rows={4} withThumb />
           ) : filteredOrders.length === 0 ? (
@@ -788,68 +788,63 @@ export const MyOrders: React.FC = () => {
               const extraItems = order.items.length - 1;
 
               return (
-                <div key={order.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                  {/* Order Header */}
-                  <div className="px-4 pt-4 pb-2 flex items-start justify-between">
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Order ID</p>
-                      <p className="text-sm font-bold text-gray-900 mt-0.5">{order.orderNumber}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Date</p>
-                      <p className="text-xs text-gray-600 mt-0.5">{order.date}</p>
-                    </div>
-                  </div>
-
-                  {/* Status Badges */}
-                  <div className="px-4 pb-3 flex items-center gap-2">
-                    <span className={`inline-flex items-center gap-1.5 ${cfg.bg} ${cfg.text} border ${cfg.border} text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider`}>
-                      <span className={`w-2 h-2 rounded-full ${cfg.dot}`}></span>
-                      {cfg.label}
-                    </span>
-                    {order.paymentStatus === 'completed' && (
-                      <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-600 text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase">
-                        Paid
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Product Info */}
-                  {firstItem && (
-                    <div
-                      className={`px-4 pb-3 flex items-center gap-3 border-t border-gray-50 pt-3 ${order.isTemporary ? 'cursor-default' : 'cursor-pointer'}`}
-                      onClick={() => {
-                        if (order.isTemporary) return;
-                        navigate(`/orders/${order.id}`);
-                      }}
-                    >
+                <details key={order.id} className="group bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <summary className="flex items-center gap-3 p-3 sm:p-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
                       <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {firstItem.product_image ? (
+                        {firstItem?.product_image ? (
                           <img
                             src={firstItem.product_image}
-                            alt={firstItem.product_name}
-                            className="w-full h-full object-cover"
+                            alt={firstItem.product_name || 'Product'}
+                            className="w-full h-full object-contain"
                           />
                         ) : (
                           <Package className="text-gray-300" size={28} />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{firstItem.product_name || 'Product'}</p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {cfg.label}
+                          {order.status === 'delivered' && order.deliveredAt && (
+                            <> on {new Date(order.deliveredAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}</>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 truncate">{firstItem?.product_name || 'Order details'}</p>
+                        {extraItems > 0 && (
+                          <p className="text-xs text-blue-600 mt-0.5">+{extraItems} more item{extraItems > 1 ? 's' : ''}</p>
+                        )}
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-gray-600 transition-transform group-open:rotate-90" aria-hidden="true" />
+                  </summary>
+                  <div className="border-t border-gray-100 pt-3">
+                  <div className="px-4 pb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Order {order.orderNumber} · {order.date}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 ${cfg.bg} ${cfg.text} border ${cfg.border} text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider`}>
+                          <span className={`w-2 h-2 rounded-full ${cfg.dot}`}></span>
+                          {cfg.label}
+                        </span>
+                        {order.paymentStatus === 'completed' && (
+                          <span className="text-xs font-semibold text-green-600">Paid</span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatPrice(order.total, order.currency)}</p>
+                  </div>
+                  {firstItem && (
+                    <div className="px-4 pb-3">
                         <p className="text-xs text-gray-500 mt-0.5">
                           Qty: {firstItem.quantity}
                           {firstItem.variant_info?.size ? ` · Size: ${firstItem.variant_info.size}` : ''}
                           {firstItem.variant_info?.color ? ` · ${firstItem.variant_info.color}` : ''}
                         </p>
-                        {extraItems > 0 && (
-                          <p className="text-xs text-blue-600 mt-0.5 font-medium">+{extraItems} more item{extraItems > 1 ? 's' : ''}</p>
-                        )}
                         <p className="text-xs text-gray-400 mt-0.5">Seller: {order.sellerName}</p>
-                      </div>
-                      <p className="text-base font-bold text-gray-900 whitespace-nowrap">
-                        {formatPrice(order.total, order.currency)}
-                      </p>
                     </div>
+                  )}
+                  {!order.isTemporary && (
+                    <button type="button" onClick={() => navigate(`/orders/${order.id}`)} className="mx-4 mb-3 text-xs font-semibold text-blue-600 hover:underline">
+                      View order details
+                    </button>
                   )}
 
                   {/* Carrier Info */}
@@ -1058,6 +1053,7 @@ export const MyOrders: React.FC = () => {
                     )}
                   </div>
                 </div>
+                </details>
               );
             })
           )}

@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { Product } from '../types';
 import { supabase } from '../lib/supabase';
+import { addToWishlist as addToWishlistInBackend } from '../lib/adminService';
 
 interface WishlistContextType {
   items: Product[];
   addToWishlist: (product: Product) => void;
+  addToWishlistConfirmed: (product: Product, userId: string) => Promise<void>;
   removeFromWishlist: (productId: string) => void;
   isInWishlist: (productId: string) => boolean;
   clearWishlist: () => void;
@@ -98,6 +100,12 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     })();
   }, []);
 
+  const addToWishlistConfirmed = useCallback(async (product: Product, userId: string) => {
+    const result = await addToWishlistInBackend(userId, product.id);
+    if (!result.success) throw new Error(result.error || 'Unable to add product to wishlist.');
+    setItems((prev) => prev.some((item) => item.id === product.id) ? prev : [...prev, product]);
+  }, []);
+
   const removeFromWishlist = useCallback((productId: string) => {
     setItems((prev) => prev.filter((item) => item.id !== productId));
     (async () => {
@@ -130,7 +138,7 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   return (
-    <WishlistContext.Provider value={{ items, addToWishlist, removeFromWishlist, isInWishlist, clearWishlist, syncToBackend, loadFromBackend }}>
+    <WishlistContext.Provider value={{ items, addToWishlist, addToWishlistConfirmed, removeFromWishlist, isInWishlist, clearWishlist, syncToBackend, loadFromBackend }}>
       {children}
     </WishlistContext.Provider>
   );

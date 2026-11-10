@@ -537,24 +537,21 @@ const OrderSummaryPage: React.FC = () => {
     <>
     <Header />
     <div className="min-h-screen bg-[#eaeded] py-4">
-      <div className="max-w-[1100px] mx-auto px-4 pb-24 md:pb-5">
+      <div className="max-w-[1100px] mx-auto px-3 sm:px-4 pb-24 md:pb-5">
+        <h1 className="mb-4 text-xl font-bold text-[#0f1111]">Order Summary</h1>
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5">
-          <div className="space-y-4">
+          <div className="space-y-2 sm:space-y-4">
             <div className="bg-white border border-[#ddd] rounded-lg p-4 sm:p-5">
-              <h2 className="text-[18px] font-bold text-[#0f1111] mb-4 flex items-center justify-between">
-                <span className="flex items-center gap-2.5">
-                  <span className="inline-flex items-center justify-center w-7 h-7 bg-[#ff9900] text-white rounded-full text-sm font-bold">1</span>
-                  Shipping Address
-                </span>
+              <h2 className="text-[15px] font-bold text-[#0f1111] mb-3 flex items-center justify-between gap-3">
+                <span>Deliver to:</span>
                 <button
                   onClick={() => navigate('/checkout/shipping')}
-                  className="text-[#007185] hover:text-[#c7511f] text-[13px] font-normal cursor-pointer"
+                  className="text-[#007185] hover:text-[#c7511f] border border-[#ddd] rounded px-3 py-1.5 text-[13px] font-medium cursor-pointer"
                 >
-                  Change address →
+                  Change
                 </button>
               </h2>
-              <div className="border-2 border-[#ff9900] rounded-lg p-3.5 bg-[#fffbf0] relative">
-                <span className="absolute top-2.5 right-3 bg-[#007185] text-white text-[11px] px-2 py-0.5 rounded">Selected</span>
+              <div>
                 <p className="font-bold text-[14px] text-[#0f1111]">{shippingData.fullName}</p>
                 <div className="text-[13px] text-[#555] mt-1 leading-relaxed">
                   <p>{shippingData.street}</p>
@@ -573,9 +570,8 @@ const OrderSummaryPage: React.FC = () => {
             </div>
 
             <div className="bg-white border border-[#ddd] rounded-lg p-4 sm:p-5">
-              <h2 className="text-[18px] font-bold text-[#0f1111] mb-4 flex items-center gap-2.5">
-                <span className="inline-flex items-center justify-center w-7 h-7 bg-[#ff9900] text-white rounded-full text-sm font-bold">2</span>
-                Review Items & Delivery
+              <h2 className="text-[15px] font-bold text-[#0f1111] mb-3">
+                Items & Delivery
               </h2>
 
               {/* Delivery estimate banner — Shiprocket TAT for India, tier-based for UK/Intl */}
@@ -609,16 +605,16 @@ const OrderSummaryPage: React.FC = () => {
                   return (
                     <div
                       key={item.cartItemId}
-                      className="flex gap-3.5 py-3.5 border-b border-[#eee] last:border-b-0"
+                      className="flex gap-3 py-3 border-b border-[#eee] last:border-b-0"
                     >
                       {productImgSrc ? (
                         <img
                           src={productImgSrc}
                           alt={item.product.name}
-                          className="w-20 h-20 object-cover rounded-md border border-[#eee] bg-[#f7f7f7] flex-shrink-0"
+                          className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-md border border-[#eee] bg-white flex-shrink-0"
                         />
                       ) : (
-                        <div className="w-20 h-20 bg-[#f7f7f7] rounded-md border border-[#eee] flex items-center justify-center flex-shrink-0">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#f7f7f7] rounded-md border border-[#eee] flex items-center justify-center flex-shrink-0">
                           <Package size={28} className="text-gray-400" />
                         </div>
                       )}
@@ -659,7 +655,7 @@ const OrderSummaryPage: React.FC = () => {
 
           <div>
             <div className="bg-white border border-[#ddd] rounded-lg p-5 sticky top-5">
-              <h2 className="text-[18px] font-bold text-[#0f1111] mb-4">Order Summary</h2>
+              <h2 className="text-[16px] font-bold text-[#0f1111] mb-4">Price Details</h2>
 
               <div className="space-y-2 mb-3">
                 {pricingLoading && (
